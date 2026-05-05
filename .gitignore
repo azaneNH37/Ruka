@@ -116,6 +116,12 @@ InitTestScene*.unity*
 !/Packages/manifest.json
 !/Packages/packages-lock.json
 
+# AI Agents
+AGENTS.md
+CLAUDE.md
+opencode.json
+.sisyphus/**
+
 
 .idea/
 .vscode/
