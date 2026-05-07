@@ -33,6 +33,20 @@ Unity 版本：`2022.3.20f1 LTS`
 
 ## Non-obvious conventions
 
+### 仓库结构
+
+Ruka 是独立的 Unity Package 仓库，不是某个 Unity 项目的子目录。
+
+仓库根目录核心结构：
+
+- `Assets/Ruka/` — 框架源码根目录
+  - `package.json` — 定义包信息和依赖
+- `README.md`
+
+禁止在 `Packages/` 目录下建立框架代码结构——
+Ruka 作为 package 被消费方项目引用，
+其源码仓库本身不包含 Unity 项目的 `Assets/` 或 `Packages/` 目录。
+
 ### ASMDEFINE — 约定 ASMDEF 的命名和划分原则
 
 - `Ruka.Utils` — 工具模块，包含各种通用工具类和扩展方法，不依赖其他模块
