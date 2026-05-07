@@ -117,13 +117,16 @@ InitTestScene*.unity*
 !/Packages/packages-lock.json
 
 # AI Agents
-AGENTS.md
-CLAUDE.md
+**.local.md
 opencode.json
-.agents/**
-.sisyphus/**
+.opencode/
+.agents/
+.sisyphus/
 
+# Plugins
+/[Aa]ssets/Plugins.meta
 
+# IDEs
 .idea/
 .vscode/
 
@@ -133,5 +136,4 @@ opencode.json
 # YooAsset 构建输出目录
 /[Bb]undles/
 /yoo/
-# YooAsset 运行时的沙盒缓存目录 (编辑器下默认在项目根目录)
 /Sandbox/

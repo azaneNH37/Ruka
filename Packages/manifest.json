@@ -45,22 +45,25 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.ivanmurzak.unity.mcp": "0.69.1"
   },
   "scopedRegistries": [
     {
       "name": "package.openupm.com",
       "url": "https://package.openupm.com",
       "scopes": [
+        "com.code-philosophy.luban",
+        "com.codewriter.triinspector",
+        "com.cysharp.messagepipe",
+        "com.cysharp.r3",
         "com.cysharp.unitask",
         "com.github-glitchenzo.nugetforunity",
-        "jp.hadashikick.vcontainer",
-        "com.tuyoogame.yooasset",
-        "com.code-philosophy.luban",
-        "com.cysharp.r3",
-        "com.codewriter.triinspector",
         "com.github.messagepack-csharp",
-        "com.cysharp.messagepipe"
+        "com.ivanmurzak.unity.mcp",
+        "com.tuyoogame.yooasset",
+        "extensions.unity.playerprefsex",
+        "jp.hadashikick.vcontainer"
       ]
     }
   ]

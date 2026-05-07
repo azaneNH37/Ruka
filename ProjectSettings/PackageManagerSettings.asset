@@ -30,15 +30,17 @@ MonoBehaviour:
     m_Name: package.openupm.com
     m_Url: https://package.openupm.com
     m_Scopes:
+    - com.code-philosophy.luban
+    - com.codewriter.triinspector
+    - com.cysharp.messagepipe
+    - com.cysharp.r3
     - com.cysharp.unitask
     - com.github-glitchenzo.nugetforunity
-    - jp.hadashikick.vcontainer
-    - com.tuyoogame.yooasset
-    - com.code-philosophy.luban
-    - com.cysharp.r3
-    - com.codewriter.triinspector
     - com.github.messagepack-csharp
-    - com.cysharp.messagepipe
+    - com.ivanmurzak.unity.mcp
+    - com.tuyoogame.yooasset
+    - extensions.unity.playerprefsex
+    - jp.hadashikick.vcontainer
     m_IsDefault: 0
     m_Capabilities: 0
     m_ConfigSource: 4
