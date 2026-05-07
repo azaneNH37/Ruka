@@ -1,6 +1,8 @@
 {
   "name": "Ruka.Core",
   "references": [
-    "Ruka.Utils"
+    "Ruka.Utils",
+    "UniTask",
+    "VContainer"
   ]
 }
