@@ -83,15 +83,38 @@ Unity 版本：`2022.3.20f1 LTS`
 
 使用 `com.ivanmurzak.unity.mcp`，**调用任何工具前确认 Unity Editor 已开启且插件已连接**。
 
-### 已知限制
-
-- `assets-find` 当前因 schema 兼容性问题不可用
-- 查找资产时改用 `assets-get-data` 配合已知路径，或告知用户手动定位
-
 ### 前提检查
 
 - 操作前调用 `editor-application-get-state` 确认编译已完成（`isCompiling: false`）
 - 编译中时等待完成再继续，不要并发操作
+
+### 已知 schema 兼容性问题（ReflectorNet PR #77 合并前）
+
+以下工具因 .NET 泛型/数组类型 schema 序列化问题暂不可用：
+
+- `assets-find` — 替代：`code-run` 调用 `AssetDatabase.FindAssets()`
+- `assets-modify` — 替代：`code-run` 直接加载资产并修改字段
+- `reflection-method-call` — 替代：`code-run` 直接调用目标方法
+- 其他参数含集合或泛型类型的工具 — 统一替代：`code-run`
+
+**遇到 Invalid schema 错误时的处理流程：**
+
+1. 停止调用出错工具
+2. 改用 `code-run` 编写等效 C# 代码直接执行
+3. 不要尝试绕过错误重试同一工具
+
+PR #77 合并并发布后，删除此节，恢复对应工具的正常使用。
+
+### code-run 使用规范
+
+- 代码必须定义一个包含静态方法的类
+- Unity API 调用必须在主线程执行：
+  使用 `MainThread.Instance.Run(() => { ... })`
+- 编译前通过 `editor-application-get-state`
+  确认 `isCompiling: false`
+- 执行后检查返回值前缀：
+  - `[Success]` — 正常
+  - `[Error]` — 编译或运行时错误，根据信息修正后重试
 
 ### 必须通过 MCP 完成的操作
 
@@ -186,6 +209,12 @@ Unity 版本：`2022.3.20f1 LTS`
 如需理解现有用法：
 
 - 在 `$PATH_OLD_CONSUMER` 中查找调用示例（只读）
+
+如果 unity-mcp 有版本更新：
+
+- 检查 ReflectorNet PR #77 是否已合并
+  （https://github.com/IvanMurzak/ReflectorNet/pull/77）
+- 已合并则更新 unity-mcp，并移除 AGENTS.md 中的 schema 兼容性限制节
 
 提交代码前：使用 git-commit skill
 完成模块实现前：使用 self-review skill
