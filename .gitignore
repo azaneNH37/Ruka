@@ -120,6 +120,7 @@ InitTestScene*.unity*
 AGENTS.md
 CLAUDE.md
 opencode.json
+.agents/**
 .sisyphus/**
 
 
