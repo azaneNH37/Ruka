@@ -1,0 +1,11 @@
+{
+  "name": "Ruka.Editor",
+  "references": [
+    "Ruka.Core",
+    "Ruka.UI",
+    "Ruka.Utils"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

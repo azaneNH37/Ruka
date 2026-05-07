@@ -1,0 +1,19 @@
+{
+  "name": "com.azane.ruka",
+  "version": "0.7.0",
+  "displayName": "Ruka",
+  "description": "<TBD>",
+  "unity": "2022.3",
+  "author": {
+    "name": "Azane"
+  },
+  "dependencies": {
+    "com.cysharp.r3": "1.3.0",
+    "com.cysharp.unitask": "2.5.10",
+    "com.tuyoogame.yooasset": "2.3.18",
+    "jp.hadashikick.vcontainer": "1.17.0",
+    "com.codewriter.triinspector": "1.15.1",
+    "com.cysharp.messagepipe": "1.8.1",
+    "com.cysharp.messagepipe.vcontainer": "1.8.1"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Ruka.Core",
+  "references": [
+    "Ruka.Utils"
+  ]
+}
