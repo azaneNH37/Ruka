@@ -83,6 +83,11 @@ Unity 版本：`2022.3.20f1 LTS`
 
 使用 `com.ivanmurzak.unity.mcp`，**调用任何工具前确认 Unity Editor 已开启且插件已连接**。
 
+### 已知限制
+
+- `assets-find` 当前因 schema 兼容性问题不可用
+- 查找资产时改用 `assets-get-data` 配合已知路径，或告知用户手动定位
+
 ### 前提检查
 
 - 操作前调用 `editor-application-get-state` 确认编译已完成（`isCompiling: false`）
