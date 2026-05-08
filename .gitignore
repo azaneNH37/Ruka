@@ -101,7 +101,7 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
 # Local Tests
-/[Aa]ssets/[Ll]ocalTests/**
+/[Aa]ssets/[Ll]ocalTests/
 /[Aa]ssets/[Ll]ocalTests.meta
 
 # macOS

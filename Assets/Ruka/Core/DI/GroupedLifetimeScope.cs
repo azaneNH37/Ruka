@@ -8,30 +8,26 @@ namespace Ruka.Core.DI
     public abstract class GroupedLifetimeScope : NestedLifetimeScope
     {
         [SerializeField] protected List<FeatureGroupCollector> collectors;
-        [SerializeField] protected List<FeatureConfigBase> configs;
+        [SerializeField] protected List<ScriptableObject> configOverrides;
 
         protected override void Configure(IContainerBuilder builder)
         {
-            RegisterConfigs(builder);
-            InstallGroups(builder);
+            try
+            {
+                RegisterConfigs(builder);
+                InstallGroups(builder);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GroupedScope] Exception during configuration for ScopeObject {gameObject.name}: {ex}", this);
+            }
         }
 
         protected virtual void RegisterConfigs(IContainerBuilder builder)
         {
-            if (configs == null)
-            {
-                return;
-            }
-
-            foreach (var config in configs)
-            {
-                if (config == null)
-                {
-                    continue;
-                }
-
-                builder.RegisterInstance(config, config.GetType());
-            }
+            var overrides = configOverrides ?? new List<ScriptableObject>();
+            var applier = new ConfigOverrideApplier(overrides);
+            builder.RegisterInstance(applier);
         }
 
         protected virtual void InstallGroups(IContainerBuilder builder)
