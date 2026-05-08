@@ -1,11 +1,9 @@
 using System;
 using R3;
-using UnityEngine;
-using VContainer.Unity;
 
 namespace Ruka.Core.Clock
 {
-    internal class LogicTickService : ILogicClock, ITickable, IDisposable
+    internal class LogicTickService : ILogicClock, IDisposable
     {
         private readonly ReactiveProperty<long> _currentTick = new(0);
         public ReadOnlyReactiveProperty<long> CurrentTick => _currentTick;
@@ -24,17 +22,22 @@ namespace Ruka.Core.Clock
         private readonly float _tickInterval;
         private float _accumulator;
 
-        public float Alpha => _accumulator / _tickInterval;
+        public float Alpha => _tickInterval > 0f ? _accumulator / _tickInterval : 0f;
 
-        public LogicTickService(TickerConfig config)
+        private readonly IDisposable _subscription;
+
+        public LogicTickService(TickerConfig config, Observable<float> deltaSource)
         {
             _tickInterval = 1f / config.Frequency;
+
+            _subscription = deltaSource.Subscribe(delta => OnDelta(delta));
         }
 
-        public void Tick()
+        private void OnDelta(float delta)
         {
-            if (IsPausedRx.CurrentValue) return;
-            _accumulator += Time.deltaTime * TimeScaleRx.CurrentValue;
+            if (_isPaused.CurrentValue) return;
+
+            _accumulator += delta * _timeScale.CurrentValue;
             while (_accumulator >= _tickInterval)
             {
                 _currentTick.Value++;
@@ -45,6 +48,7 @@ namespace Ruka.Core.Clock
 
         public void Dispose()
         {
+            _subscription.Dispose();
             _onTickSubject.OnCompleted();
             _onTickSubject.Dispose();
             _timeScale.Dispose();

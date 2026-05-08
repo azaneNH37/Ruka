@@ -1,6 +1,7 @@
+using R3;
 using Ruka.Core.DI;
+using UnityEngine;
 using VContainer;
-using VContainer.Unity;
 
 namespace Ruka.Core.Clock
 {
@@ -10,9 +11,14 @@ namespace Ruka.Core.Clock
         public void Install(IContainerBuilder builder)
         {
             builder.RegisterConfig(new TickerConfig());
-            builder.RegisterEntryPoint<LogicTickService>()
+
+            builder.RegisterInstance<Observable<float>>(
+                Observable.EveryUpdate().Select(_ => Time.unscaledDeltaTime));
+
+            builder.Register<LogicTickService>(Lifetime.Singleton)
                 .As<ILogicClock>()
                 .AsSelf();
+
             builder.Register<LogicClockController>(Lifetime.Singleton);
         }
     }
