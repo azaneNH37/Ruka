@@ -3,6 +3,10 @@
   "references": [
     "Ruka.Utils",
     "UniTask",
-    "VContainer"
+    "VContainer",
+    "R3",
+    "MessagePipe",
+    "MessagePipe.VContainer",
+    "YooAsset"
   ]
 }
