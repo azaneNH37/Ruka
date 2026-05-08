@@ -12,10 +12,10 @@ namespace Ruka.Core.Clock
         {
             builder.RegisterConfig(new TickerConfig());
 
-            builder.RegisterInstance<Observable<float>>(
-                Observable.EveryUpdate().Select(_ => Time.unscaledDeltaTime));
+            var deltaSource = Observable.EveryUpdate().Select(_ => Time.unscaledDeltaTime);
 
             builder.Register<LogicTickService>(Lifetime.Singleton)
+                .WithParameter(deltaSource)
                 .As<ILogicClock>()
                 .AsSelf();
 
