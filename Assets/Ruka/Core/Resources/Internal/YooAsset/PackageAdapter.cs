@@ -6,14 +6,14 @@ using YooAsset;
 
 namespace Ruka.Core.Resources
 {
-    internal sealed class YooAssetPackageAdapter : IAssetPackage
+    internal sealed class PackageAdapter : IAssetPackage
     {
         private readonly ResourcePackage _package;
         private readonly Dictionary<int, AssetHandle> _assetHandles = new();
         private readonly Dictionary<int, SceneHandle> _sceneHandles = new();
         private int _nextToken;
 
-        public YooAssetPackageAdapter(ResourcePackage package)
+        public PackageAdapter(ResourcePackage package)
         {
             _package = package;
         }

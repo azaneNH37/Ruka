@@ -82,7 +82,7 @@ namespace Ruka.Core.Resources
             }
 
             stopwatch.Stop();
-            var adapter = new YooAssetPackageAdapter(package);
+            var adapter = new PackageAdapter(package);
             _loader.HandleLoadResult(adapter, true, null);
             Debug.Log($"[AssetInitializer] Completed in {stopwatch.ElapsedMilliseconds}ms.");
         }
