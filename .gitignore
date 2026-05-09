@@ -122,6 +122,7 @@ opencode.json
 .opencode/
 .agents/
 .sisyphus/
+.claude/
 
 # Plugins
 /[Aa]ssets/Plugins.meta
