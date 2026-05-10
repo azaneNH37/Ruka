@@ -2,6 +2,10 @@
   "name": "Ruka.UI",
   "references": [
     "Ruka.Core",
-    "Ruka.Utils"
+    "Ruka.Utils",
+    "UniTask",
+    "R3",
+    "VContainer",
+    "VContainer.Unity"
   ]
 }
