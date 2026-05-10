@@ -123,6 +123,7 @@ opencode.json
 .agents/
 .sisyphus/
 .claude/
+.codenomad/
 
 # Plugins
 /[Aa]ssets/Plugins.meta
