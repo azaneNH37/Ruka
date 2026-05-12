@@ -43,7 +43,7 @@ namespace Ruka.Core.Resources
         public async UniTask<SceneResHandle> LoadSceneSingleAsync(Symbol<AssetRef> sceneKey)
         {
             await WaitUntilReady();
-            return await _package.LoadSceneAsync(sceneKey);
+            return _package.LoadSceneAsync(sceneKey);
         }
     }
 }

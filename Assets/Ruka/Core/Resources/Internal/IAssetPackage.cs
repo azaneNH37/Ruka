@@ -9,7 +9,7 @@ namespace Ruka.Core.Resources
         UniTask<(T asset, ReleaseToken token)> LoadAssetAsync<T>(string address) where T : Object;
         UniTask<(GameObject prefab, ReleaseToken token)> LoadPrefabAsync(string address);
         UniTask<IList<(T asset, ReleaseToken token)>> LoadAllByTagAsync<T>(string tag) where T : Object;
-        UniTask<SceneResHandle> LoadSceneAsync(string address);
+        SceneResHandle LoadSceneAsync(string address);
         void Release(ReleaseToken token);
     }
 }

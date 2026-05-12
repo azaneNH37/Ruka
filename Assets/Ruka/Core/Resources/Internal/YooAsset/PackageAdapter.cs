@@ -100,21 +100,22 @@ namespace Ruka.Core.Resources
             return result;
         }
 
-        public async UniTask<SceneResHandle> LoadSceneAsync(string address)
+        public SceneResHandle LoadSceneAsync(string address)
         {
             var handle = _package.LoadSceneAsync(address);
-            await handle.ToUniTask();
 
             var token = AllocateToken();
             _sceneHandles[token.Value] = handle;
 
             return new SceneResHandle(
-                handle.Progress,
-                () =>
+                progressFunc: () => handle.Progress,
+                isLoadedFunc: () => handle.IsDone,
+                activateFunc: async () =>
                 {
+                    if (!handle.IsDone)
+                        await handle.ToUniTask();
                     _sceneHandles.Remove(token.Value);
                     handle.ActivateScene();
-                    return UniTask.CompletedTask;
                 });
         }
 
