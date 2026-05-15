@@ -1,0 +1,17 @@
+{
+  "name": "Ruka.Samples.LubanIntegration",
+  "references": [
+    "Ruka.Core",
+    "UniTask",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
