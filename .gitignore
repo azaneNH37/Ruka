@@ -35,6 +35,9 @@
 .vs/
 .vsconfig
 
+# Vscode c# dev kit
+*.lscache
+
 # Gradle cache directory
 .gradle/
 

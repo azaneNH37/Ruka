@@ -7,6 +7,7 @@
     "R3",
     "MessagePipe",
     "MessagePipe.VContainer",
-    "YooAsset"
+    "YooAsset",
+    "MessagePack"
   ]
 }
