@@ -4,6 +4,7 @@ namespace Ruka.Core.DI
 {
     public struct InstallerGroup { }
 
+    [SymbolProvider(typeof(InstallerGroup), "RUKA_CORE")]
     public static class InstallerGroups
     {
         public const string ProjectGroup = "PROJECT";

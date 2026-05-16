@@ -4,9 +4,10 @@ using Ruka.Core.Symbols;
 
 namespace Ruka.Core.DI
 {
+    [CreateAssetMenu(menuName = "Ruka/DI/Feature Group Collector", fileName = "FeatureGroupCollector")]
     public sealed class FeatureGroupCollector : ScriptableObject
     {
-        [SerializeField] private Symbol<InstallerGroup> targetGroup;
+        [SerializeField, SymbolSelector] private Symbol<InstallerGroup> targetGroup;
         [SerializeField] private List<string> qualifiedTypes = new();
 
         public Symbol<InstallerGroup> TargetGroup => targetGroup;

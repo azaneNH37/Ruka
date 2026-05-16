@@ -5,7 +5,7 @@ namespace Ruka.UI.Windows
 {
     public sealed class SceneWindowRegistry : MonoBehaviour
     {
-        [SerializeField] private Symbol<WindowId> windowId;
+        [SerializeField, SymbolSelector(AllowManualInput = true)] private Symbol<WindowId> windowId;
         [SerializeField] private bool isRoot;
         [SerializeField] private bool attachToRoot;
 
