@@ -15,11 +15,18 @@ namespace Ruka.UI.Windows
 
         public virtual UniTask ShowAsync() => UniTask.CompletedTask;
         public virtual UniTask HideAsync() => UniTask.CompletedTask;
+
+        internal virtual void SetPayload(object payload) { }
     }
 
     public abstract class WindowBase<TPayload> : WindowBase
     {
         public TPayload Payload { get; internal set; }
+
+        internal override void SetPayload(object payload)
+        {
+            Payload = (TPayload)payload;
+        }
     }
 
     public abstract class WindowResultBase<TResult> : WindowBase, IWindowResult<TResult>

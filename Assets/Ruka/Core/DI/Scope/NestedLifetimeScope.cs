@@ -19,14 +19,13 @@ namespace Ruka.Core.DI
 
         protected override void Awake()
         {
-            if (autoInjectSelf && !autoInjectGameObjects.Contains(gameObject))
+            if (autoInjectSelf)
             {
-                if (autoInjectGameObjects == null)
+                autoInjectGameObjects ??= new List<GameObject>();
+                if (!autoInjectGameObjects.Contains(gameObject))
                 {
-                    autoInjectGameObjects = new List<GameObject>();
+                    autoInjectGameObjects.Add(gameObject);
                 }
-
-                autoInjectGameObjects.Add(gameObject);
             }
 
             resolvedParent = ResolveParentScope();

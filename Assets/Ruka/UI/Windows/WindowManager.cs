@@ -292,23 +292,7 @@ namespace Ruka.UI.Windows
 
         private static void SetPayload(WindowBase window, object payload)
         {
-            var windowType = window.GetType();
-            while (windowType != null && windowType != typeof(WindowBase))
-            {
-                if (windowType.IsGenericType && windowType.GetGenericTypeDefinition() == typeof(WindowBase<>))
-                {
-                    var payloadProp = windowType.GetProperty("Payload");
-                    payloadProp?.SetValue(window, payload);
-                    return;
-                }
-                if (windowType.IsGenericType && windowType.GetGenericTypeDefinition() == typeof(WindowBase<,>))
-                {
-                    var payloadProp = windowType.GetProperty("Payload");
-                    payloadProp?.SetValue(window, payload);
-                    return;
-                }
-                windowType = windowType.BaseType;
-            }
+            window.SetPayload(payload);
         }
 
         private static void EnsureCanvas(GameObject instance)
