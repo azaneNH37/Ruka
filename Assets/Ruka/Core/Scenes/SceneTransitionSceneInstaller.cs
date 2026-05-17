@@ -7,7 +7,7 @@ using VContainer;
 
 namespace Ruka.Core.Scenes
 {
-    [FeatureInstaller(InstallerGroups.SceneGroup, order: 45)]
+    [FeatureInstaller(typeof(SceneGroup), order: 45)]
     internal sealed class SceneTransitionSceneInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)

@@ -44,7 +44,7 @@ namespace Ruka.Editor.DI
 
                 EditorGUILayout.LabelField(
                     collector.name,
-                    $"group: {collector.TargetGroup.Value}  |  {collector.QualifiedTypes.Count} installer(s)",
+                    $"group: {collector.TargetGroup?.Name ?? "(unset)"}  |  {collector.QualifiedTypes.Count} installer(s)",
                     EditorStyles.miniLabel);
 
                 EditorGUI.indentLevel++;

@@ -27,18 +27,25 @@ namespace Ruka.Core.DI
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public sealed class FeatureInstallerAttribute : Attribute
     {
-        public FeatureInstallerAttribute(string group, int order = 0)
+        public FeatureInstallerAttribute(Type group, int order = 0)
         {
-            if (string.IsNullOrWhiteSpace(group))
+            if (group == null)
             {
-                throw new ArgumentException("Group cannot be null or whitespace.", nameof(group));
+                throw new ArgumentNullException(nameof(group));
             }
 
-            Group = group.Trim();
+            if (!typeof(InstallerGroupMarker).IsAssignableFrom(group))
+            {
+                throw new ArgumentException(
+                    $"Group type '{group.FullName}' must inherit from {nameof(InstallerGroupMarker)}.",
+                    nameof(group));
+            }
+
+            Group = group;
             Order = order;
         }
 
-        public string Group { get; }
+        public Type Group { get; }
         public int Order { get; }
     }
 }

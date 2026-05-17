@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Ruka.Core.Symbols;
 
@@ -22,10 +23,19 @@ namespace Ruka.Core.DI
 
         internal void Register(Symbol<ScopeIdentifier> id, NestedLifetimeScope scope)
         {
-            if (!id.IsEmpty)
+            if (id.IsEmpty)
             {
-                _scopes[id] = scope;
+                return;
             }
+
+            if (_scopes.TryGetValue(id, out var existing) && existing != scope)
+            {
+                throw new InvalidOperationException(
+                    $"[ScopeRegistry] Scope id '{id.Value}' is already registered by '{existing.name}'. " +
+                    $"Scope IDs must be unique. Conflicting scope: '{scope.name}'.");
+            }
+
+            _scopes[id] = scope;
         }
 
         internal void Unregister(Symbol<ScopeIdentifier> id, NestedLifetimeScope scope)

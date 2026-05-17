@@ -5,7 +5,7 @@ using VContainer;
 
 namespace Ruka.UI.Windows
 {
-    [FeatureInstaller(InstallerGroups.SceneGroup)]
+    [FeatureInstaller(typeof(SceneGroup))]
     public sealed class WindowFeatureInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)

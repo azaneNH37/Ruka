@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Ruka.Core.Symbols;
 using Ruka.Utils.Core;
 
 namespace Ruka.Core.DI
@@ -9,10 +8,10 @@ namespace Ruka.Core.DI
     [CreateAssetMenu(menuName = "Ruka/DI/Feature Group Collector", fileName = "FeatureGroupCollector")]
     public sealed class FeatureGroupCollector : ScriptableObject
     {
-        [SerializeField, SymbolSelector] private Symbol<InstallerGroup> targetGroup;
+        [SerializeField, TypeFilter(typeof(InstallerGroupMarker))] private SerializableType targetGroup;
         [SerializeField, HideInInspector] private List<SerializableType> qualifiedTypes = new();
 
-        public Symbol<InstallerGroup> TargetGroup => targetGroup;
+        public Type TargetGroup => targetGroup?.Type;
         public IReadOnlyList<SerializableType> QualifiedTypes => qualifiedTypes;
 
 #if UNITY_EDITOR

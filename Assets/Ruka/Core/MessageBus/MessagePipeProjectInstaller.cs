@@ -4,7 +4,7 @@ using VContainer;
 
 namespace Ruka.Core.MessageBus
 {
-    [FeatureInstaller(InstallerGroups.ProjectGroup, order: 10)]
+    [FeatureInstaller(typeof(ProjectGroup), order: 10)]
     public sealed class MessagePipeProjectInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)

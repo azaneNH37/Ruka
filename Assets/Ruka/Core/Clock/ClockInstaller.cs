@@ -5,7 +5,7 @@ using VContainer;
 
 namespace Ruka.Core.Clock
 {
-    [FeatureInstaller(InstallerGroups.ProjectGroup, order: 30)]
+    [FeatureInstaller(typeof(SceneGroup), order: 30)]
     public sealed class ClockInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)

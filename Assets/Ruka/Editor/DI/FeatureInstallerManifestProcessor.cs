@@ -74,10 +74,10 @@ namespace Ruka.Editor.DI
                         continue;
                     }
 
-                    var group = collector.TargetGroup.Value;
-                    if (string.IsNullOrWhiteSpace(group))
+                    var group = collector.TargetGroup;
+                    if (group == null)
                     {
-                        Debug.LogError($"[{nameof(FeatureInstallerManifestProcessor)}] {collector.name} has an empty target group.", collector);
+                        Debug.LogError($"[{nameof(FeatureInstallerManifestProcessor)}] {collector.name} has no target group assigned.", collector);
                         continue;
                     }
 
@@ -110,10 +110,10 @@ namespace Ruka.Editor.DI
             }
         }
 
-        private static Dictionary<string, List<(Type Type, int Order)>> CollectFeatureInstallers()
+        private static Dictionary<Type, List<(Type Type, int Order)>> CollectFeatureInstallers()
         {
             var allTypes = TypeCache.GetTypesWithAttribute<FeatureInstallerAttribute>();
-            var grouped = new Dictionary<string, List<(Type Type, int Order)>>(StringComparer.Ordinal);
+            var grouped = new Dictionary<Type, List<(Type Type, int Order)>>();
 
             for (var i = 0; i < allTypes.Count; i++)
             {
@@ -129,22 +129,28 @@ namespace Ruka.Editor.DI
                     continue;
                 }
 
-                var attr = (FeatureInstallerAttribute)Attribute.GetCustomAttribute(type, typeof(FeatureInstallerAttribute));
+                FeatureInstallerAttribute attr;
+                try
+                {
+                    attr = (FeatureInstallerAttribute)Attribute.GetCustomAttribute(type, typeof(FeatureInstallerAttribute));
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{nameof(FeatureInstallerManifestProcessor)}] Invalid [FeatureInstaller] on {type.FullName}: {ex.Message}");
+                    continue;
+                }
+
                 if (attr == null)
                 {
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(attr.Group))
-                {
-                    Debug.LogError($"[{nameof(FeatureInstallerManifestProcessor)}] {type.FullName} has an empty Group in {nameof(FeatureInstallerAttribute)}.");
-                    continue;
-                }
+                var group = attr.Group;
 
-                if (!grouped.TryGetValue(attr.Group, out var entries))
+                if (!grouped.TryGetValue(group, out var entries))
                 {
                     entries = new List<(Type Type, int Order)>();
-                    grouped[attr.Group] = entries;
+                    grouped[group] = entries;
                 }
 
                 entries.Add((type, attr.Order));
@@ -189,16 +195,16 @@ namespace Ruka.Editor.DI
         }
 
         private static bool AutoCreateCollectors(
-            Dictionary<string, List<(Type Type, int Order)>> installersByGroup,
+            Dictionary<Type, List<(Type Type, int Order)>> installersByGroup,
             List<FeatureGroupCollector> existingCollectors)
         {
-            var collectorGroups = new HashSet<string>(StringComparer.Ordinal);
+            var collectorGroups = new HashSet<Type>();
             for (var i = 0; i < existingCollectors.Count; i++)
             {
                 var c = existingCollectors[i];
-                if (c != null && !string.IsNullOrWhiteSpace(c.TargetGroup.Value))
+                if (c?.TargetGroup != null)
                 {
-                    collectorGroups.Add(c.TargetGroup.Value);
+                    collectorGroups.Add(c.TargetGroup);
                 }
             }
 
@@ -216,40 +222,40 @@ namespace Ruka.Editor.DI
                 var collector = ScriptableObject.CreateInstance<FeatureGroupCollector>();
                 SetCollectorTargetGroup(collector, group);
 
-                var assetName = $"{SanitizeAssetName(group)}_Collector.asset";
+                var assetName = $"{SanitizeAssetName(group.Name)}_Collector.asset";
                 var assetPath = Path.Combine(CollectorsDir, assetName).Replace("\\", "/");
                 assetPath = AssetDatabase.GenerateUniqueAssetPath(assetPath);
 
                 AssetDatabase.CreateAsset(collector, assetPath);
-                Debug.Log($"[{nameof(FeatureInstallerManifestProcessor)}] Auto-created collector for group '{group}' at {assetPath}.");
+                Debug.Log($"[{nameof(FeatureInstallerManifestProcessor)}] Auto-created collector for group '{group.FullName}' at {assetPath}.");
                 created = true;
             }
 
             return created;
         }
 
-        private static void SetCollectorTargetGroup(FeatureGroupCollector collector, string groupName)
+        private static void SetCollectorTargetGroup(FeatureGroupCollector collector, Type groupType)
         {
             var so = new SerializedObject(collector);
             var targetGroupProp = so.FindProperty("targetGroup");
             if (targetGroupProp != null)
             {
-                var valueProp = targetGroupProp.FindPropertyRelative("value");
-                if (valueProp != null)
+                var aqnProp = targetGroupProp.FindPropertyRelative("assemblyQualifiedName");
+                if (aqnProp != null)
                 {
-                    valueProp.stringValue = groupName;
+                    aqnProp.stringValue = groupType.AssemblyQualifiedName;
                 }
             }
 
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static string SanitizeAssetName(string groupName)
+        private static string SanitizeAssetName(string name)
         {
-            var sb = new StringBuilder(groupName.Length);
-            for (var i = 0; i < groupName.Length; i++)
+            var sb = new StringBuilder(name.Length);
+            for (var i = 0; i < name.Length; i++)
             {
-                var c = groupName[i];
+                var c = name[i];
                 if (char.IsLetterOrDigit(c) || c == '_' || c == '-')
                 {
                     sb.Append(c);
@@ -264,7 +270,7 @@ namespace Ruka.Editor.DI
         }
 
         private static void GenerateInstallerManifest(
-            Dictionary<string, List<(Type Type, int Order)>> installersByGroup)
+            Dictionary<Type, List<(Type Type, int Order)>> installersByGroup)
         {
             EnsureDirectoryExists(GeneratedDir);
 
@@ -295,8 +301,8 @@ namespace Ruka.Editor.DI
             }
             else
             {
-                var groupNames = new List<string>(installersByGroup.Keys);
-                groupNames.Sort(StringComparer.Ordinal);
+                var groupTypes = new List<Type>(installersByGroup.Keys);
+                groupTypes.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
 
                 var totalInstallers = 0;
 
@@ -305,11 +311,11 @@ namespace Ruka.Editor.DI
                 sb.AppendLine("| Group | Installers |");
                 sb.AppendLine("|-------|-----------|");
 
-                foreach (var groupName in groupNames)
+                foreach (var groupType in groupTypes)
                 {
-                    var count = installersByGroup[groupName].Count;
+                    var count = installersByGroup[groupType].Count;
                     totalInstallers += count;
-                    sb.AppendLine($"| {groupName} | {count} |");
+                    sb.AppendLine($"| {groupType.FullName} | {count} |");
                 }
 
                 sb.AppendLine($"| **Total** | **{totalInstallers}** |");
@@ -317,11 +323,11 @@ namespace Ruka.Editor.DI
                 sb.AppendLine("---");
                 sb.AppendLine();
 
-                foreach (var groupName in groupNames)
+                foreach (var groupType in groupTypes)
                 {
-                    var entries = installersByGroup[groupName];
+                    var entries = installersByGroup[groupType];
 
-                    sb.AppendLine($"## Group: {groupName}");
+                    sb.AppendLine($"## Group: {groupType.FullName}");
                     sb.AppendLine();
 
                     for (var j = 0; j < entries.Count; j++)
@@ -355,7 +361,7 @@ namespace Ruka.Editor.DI
         }
 
         private static void GenerateLinkXml(
-            Dictionary<string, List<(Type Type, int Order)>> installersByGroup)
+            Dictionary<Type, List<(Type Type, int Order)>> installersByGroup)
         {
             EnsureDirectoryExists(GeneratedDir);
 
@@ -480,7 +486,7 @@ namespace Ruka.Editor.DI
         }
 
         private static void LogScanResult(
-            Dictionary<string, List<(Type Type, int Order)>> installersByGroup,
+            Dictionary<Type, List<(Type Type, int Order)>> installersByGroup,
             int assetCount,
             string reason)
         {
@@ -495,14 +501,14 @@ namespace Ruka.Editor.DI
                 $"<color=green>[{nameof(FeatureInstallerManifestProcessor)}] Scan completed ({reason}). Collectors: {assetCount}.</color>"
             };
 
-            var groupNames = new List<string>(installersByGroup.Keys);
-            groupNames.Sort(StringComparer.Ordinal);
+            var groupTypes = new List<Type>(installersByGroup.Keys);
+            groupTypes.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
 
-            for (var i = 0; i < groupNames.Count; i++)
+            for (var i = 0; i < groupTypes.Count; i++)
             {
-                var groupName = groupNames[i];
-                var count = installersByGroup[groupName].Count;
-                lines.Add($"- Group '{groupName}': {count} installer(s)");
+                var groupType = groupTypes[i];
+                var count = installersByGroup[groupType].Count;
+                lines.Add($"- Group '{groupType.Name}': {count} installer(s)");
             }
 
             Debug.Log(string.Join("\n", lines));

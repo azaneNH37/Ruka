@@ -4,7 +4,7 @@ using VContainer;
 
 namespace Ruka.Core.Random
 {
-    [FeatureInstaller(InstallerGroups.ProjectGroup, order: 25)]
+    [FeatureInstaller(typeof(ProjectGroup), order: 25)]
     public sealed class RandomInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)

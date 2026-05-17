@@ -4,7 +4,7 @@ using VContainer.Unity;
 
 namespace Ruka.Core.Resources
 {
-    [FeatureInstaller(InstallerGroups.ProjectGroup, order: 20)]
+    [FeatureInstaller(typeof(ProjectGroup), order: 20)]
     public sealed class ResourceInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)

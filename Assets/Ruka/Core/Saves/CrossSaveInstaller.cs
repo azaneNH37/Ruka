@@ -4,7 +4,7 @@ using VContainer.Unity;
 
 namespace Ruka.Core.Saves
 {
-    [FeatureInstaller(InstallerGroups.ProjectGroup, order: 61)]
+    [FeatureInstaller(typeof(ProjectGroup), order: 61)]
     internal sealed class CrossSaveInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)
