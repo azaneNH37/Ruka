@@ -4,7 +4,7 @@ using Ruka.Core.Symbols;
 
 namespace Ruka.Core.Scenes
 {
-    public record SceneTransitionConfig : FeatureConfig
+    public record SceneTransitionConfig : IFeatureConfig
     {
         public Symbol<AssetRef>? CurtainPrefabKey { get; init; } = null;
     }

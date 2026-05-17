@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Ruka.Core.Symbols;
+using Ruka.Utils.Core;
 
 namespace Ruka.Core.DI
 {
@@ -8,17 +10,17 @@ namespace Ruka.Core.DI
     public sealed class FeatureGroupCollector : ScriptableObject
     {
         [SerializeField, SymbolSelector] private Symbol<InstallerGroup> targetGroup;
-        [SerializeField, HideInInspector] private List<string> qualifiedTypes = new();
+        [SerializeField, HideInInspector] private List<SerializableType> qualifiedTypes = new();
 
         public Symbol<InstallerGroup> TargetGroup => targetGroup;
-        public IReadOnlyList<string> QualifiedTypes => qualifiedTypes;
+        public IReadOnlyList<SerializableType> QualifiedTypes => qualifiedTypes;
 
 #if UNITY_EDITOR
-        public bool UpdateQualifiedTypes(IReadOnlyList<string> types)
+        public bool UpdateQualifiedTypes(IReadOnlyList<Type> types)
         {
             if (types == null)
             {
-                throw new System.ArgumentNullException(nameof(types));
+                throw new ArgumentNullException(nameof(types));
             }
 
             if (AreQualifiedTypesEqual(types))
@@ -29,13 +31,15 @@ namespace Ruka.Core.DI
             qualifiedTypes.Clear();
             for (var i = 0; i < types.Count; i++)
             {
-                qualifiedTypes.Add(types[i]);
+                var st = new SerializableType();
+                st.Set(types[i]);
+                qualifiedTypes.Add(st);
             }
 
             return true;
         }
 
-        private bool AreQualifiedTypesEqual(IReadOnlyList<string> types)
+        private bool AreQualifiedTypesEqual(IReadOnlyList<Type> types)
         {
             if (qualifiedTypes.Count != types.Count)
             {
@@ -44,7 +48,7 @@ namespace Ruka.Core.DI
 
             for (var i = 0; i < types.Count; i++)
             {
-                if (!string.Equals(qualifiedTypes[i], types[i], System.StringComparison.Ordinal))
+                if (qualifiedTypes[i].Type != types[i])
                 {
                     return false;
                 }

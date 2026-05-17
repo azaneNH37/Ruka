@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Ruka.UI.Windows
 {
-    public sealed record WindowConfig : FeatureConfig
+    public sealed record WindowConfig : IFeatureConfig
     {
         public int LayerSpacing { get; init; } = 1000;
         public Vector2 ReferenceResolution { get; init; } = new(1920, 1080);

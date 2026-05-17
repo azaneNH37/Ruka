@@ -142,3 +142,7 @@ opencode.json
 /[Bb]undles/
 /yoo/
 /Sandbox/
+
+# Ruka.Generated
+/[Aa]ssets/Ruka.Generated/
+/[Aa]ssets/Ruka.Generated.meta

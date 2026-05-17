@@ -2,7 +2,7 @@ using Ruka.Core.DI;
 
 namespace Ruka.Core.Saves
 {
-    public sealed record SavesConfig : FeatureConfig
+    public sealed record SavesConfig : IFeatureConfig
     {
         public string SaveFolder { get; init; } = "Saves";
         public string SaveFilePrefix { get; init; } = "save_";

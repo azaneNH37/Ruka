@@ -1,50 +1,63 @@
 using System.Collections.Generic;
-using System.Diagnostics;
-using Cysharp.Threading.Tasks;
+using Ruka.Core.Symbols;
 using UnityEngine;
+using UnityEngine.Serialization;
 using VContainer.Unity;
 using Debug = UnityEngine.Debug;
 
 namespace Ruka.Core.DI
 {
-    public abstract class NestedLifetimeScope : LifetimeScope
+    public class NestedLifetimeScope : LifetimeScope
     {
+        [Header("Scope Identity")]
+        [SerializeField, SymbolSelector]
+        protected Symbol<ScopeIdentifier> scopeId;
+
+        [Header("Parent Resolution")]
         [SerializeField] protected bool autoParent = true;
         [SerializeField] protected LifetimeScope parentScope;
-        [SerializeField] protected bool logParentRelation;
-        [SerializeField] protected bool autoInjectSelf;
-        [SerializeField] protected int maxWaitMs = 5000;
+        [SerializeField, SymbolSelector]
+        protected Symbol<ScopeIdentifier> parentScopeId;
+
+        [Header("Debug")]
+        [SerializeField]
+        protected bool logParentResolution;
 
         private LifetimeScope resolvedParent;
 
         protected override void Awake()
         {
-            if (autoInjectSelf)
+            if (!scopeId.IsEmpty)
             {
-                autoInjectGameObjects ??= new List<GameObject>();
-                if (!autoInjectGameObjects.Contains(gameObject))
-                {
-                    autoInjectGameObjects.Add(gameObject);
-                }
+                ScopeRegistry.Instance.Register(scopeId, this);
             }
 
+            ScanSelfInjectMarkers();
             resolvedParent = ResolveParentScope();
 
-            if (resolvedParent != null && resolvedParent.Container == null)
+            if (resolvedParent != null)
             {
-                if (logParentRelation)
-                {
-                    Debug.Log($"[NestedScope] {name} -> Waiting for parent {resolvedParent.name} to settle...");
-                }
+                parentReference.Object = resolvedParent;
+            }
 
-                var shouldRun = autoRun;
-                autoRun = false;
-                base.Awake();
-                WaitForParentAndBuild(resolvedParent, shouldRun).Forget();
-                return;
+            if (logParentResolution)
+            {
+                Debug.Log(resolvedParent != null
+                    ? $"[NestedScope] {name} -> parent: {resolvedParent.name}"
+                    : $"[NestedScope] {name} -> no parent resolved; falling back to VContainer root");
             }
 
             base.Awake();
+        }
+
+        protected override void OnDestroy()
+        {
+            if (!scopeId.IsEmpty)
+            {
+                ScopeRegistry.Instance.Unregister(scopeId, this);
+            }
+
+            base.OnDestroy();
         }
 
         protected override LifetimeScope FindParent()
@@ -54,41 +67,67 @@ namespace Ruka.Core.DI
 
         protected virtual LifetimeScope ResolveParentScope()
         {
-            if (autoParent)
+            if (autoParent && transform.parent != null)
             {
-                return transform.parent != null ? transform.parent.GetComponentInParent<LifetimeScope>() : null;
+                return transform.parent.GetComponentInParent<LifetimeScope>();
             }
 
-            return parentScope;
+            if (parentScope != null)
+            {
+                return parentScope;
+            }
+
+            if (!parentScopeId.IsEmpty && ScopeRegistry.Instance.TryFind(parentScopeId, out var found) && found != this)
+            {
+                return found;
+            }
+
+            return null;
         }
 
-        private async UniTask WaitForParentAndBuild(LifetimeScope parent, bool shouldRun)
+        private void ScanSelfInjectMarkers()
         {
-            var stopwatch = Stopwatch.StartNew();
-            var cancellationToken = this.GetCancellationTokenOnDestroy();
-
-            while (parent != null && parent.Container == null)
+            var markers = GetComponentsInChildren<SelfInjectMarker>(includeInactive: true);
+            if (markers == null || markers.Length == 0)
             {
-                if (stopwatch.ElapsedMilliseconds > maxWaitMs)
+                return;
+            }
+
+            autoInjectGameObjects ??= new List<GameObject>();
+
+            for (var i = 0; i < markers.Length; i++)
+            {
+                var marker = markers[i];
+                if (marker == null) continue;
+
+                var go = marker.gameObject;
+                if (go == gameObject) continue;
+                if (IsOwnedByNestedScope(go)) continue;
+
+                if (!autoInjectGameObjects.Contains(go))
                 {
-                    Debug.LogError($"[NestedScope] Parent not ready within {maxWaitMs}ms for {name}.", this);
-                    return;
+                    autoInjectGameObjects.Add(go);
+                }
+            }
+        }
+
+        // Checks whether 'target' has an intervening LifetimeScope between itself and this scope's
+        // transform. Stops traversal at this scope's own transform to avoid climbing into ancestors.
+        private bool IsOwnedByNestedScope(GameObject target)
+        {
+            var current = target.transform.parent;
+            while (current != null && current != transform)
+            {
+                var scope = current.GetComponent<LifetimeScope>();
+                if (scope != null && scope != this)
+                {
+                    return true;
                 }
 
-                await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                current = current.parent;
             }
 
-            stopwatch.Stop();
-
-            if (logParentRelation)
-            {
-                Debug.Log($"[NestedScope] {name} -> Parent settled. Wait time {stopwatch.ElapsedMilliseconds} ms");
-            }
-
-            if (shouldRun)
-            {
-                Build();
-            }
+            return false;
         }
     }
 }

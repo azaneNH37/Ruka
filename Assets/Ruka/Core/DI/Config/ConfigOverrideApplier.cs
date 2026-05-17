@@ -1,14 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 
 namespace Ruka.Core.DI
 {
     public sealed class ConfigOverrideApplier
     {
-        private readonly Dictionary<Type, Func<object, object>> applyByType = new();
-        private readonly HashSet<Type> overrideTypes = new();
+        private readonly Dictionary<Type, List<IConfigOverrideApply>> applyByType = new();
 
         public ConfigOverrideApplier(IReadOnlyList<ScriptableObject> overrides)
         {
@@ -20,38 +18,42 @@ namespace Ruka.Core.DI
             for (var i = 0; i < overrides.Count; i++)
             {
                 var entry = overrides[i];
-                if (entry == null)
+                if (entry is not IConfigOverrideApply apply)
                 {
                     continue;
                 }
 
-                var overrideType = entry.GetType();
-                var configType = ResolveOverrideConfigType(overrideType);
+                var configType = ResolveOverrideConfigType(entry.GetType());
                 if (configType == null)
                 {
                     throw new InvalidOperationException(
-                        $"Config override '{overrideType.FullName}' must derive from FeatureConfigOverride<T>.");
+                        $"Config override '{entry.GetType().FullName}' must derive from FeatureConfigOverride<T>.");
                 }
 
-                if (!overrideTypes.Add(configType))
+                if (!applyByType.TryGetValue(configType, out var applies))
                 {
-                    throw new InvalidOperationException(
-                        $"Multiple overrides found for config type '{configType.FullName}'.");
+                    applies = new List<IConfigOverrideApply>();
+                    applyByType[configType] = applies;
                 }
 
-                applyByType[configType] = CreateApplyDelegate(configType, entry);
+                applies.Add(apply);
             }
         }
 
-        public T Apply<T>(T baseline) where T : notnull
+        public T Apply<T>(T baseline) where T : IFeatureConfig
         {
-            var configType = typeof(T);
-            if (!applyByType.TryGetValue(configType, out var apply))
+            if (!applyByType.TryGetValue(typeof(T), out var applies))
             {
                 return baseline;
             }
 
-            return (T)apply(baseline);
+            object result = baseline;
+            foreach (var apply in applies)
+            {
+                result = apply.Apply(result);
+            }
+
+            return (T)result;
         }
 
         private static Type ResolveOverrideConfigType(Type overrideType)
@@ -67,35 +69,6 @@ namespace Ruka.Core.DI
             }
 
             return null;
-        }
-
-        private static Func<object, object> CreateApplyDelegate(Type configType, ScriptableObject instance)
-        {
-            var method = typeof(ConfigOverrideApplier).GetMethod(
-                nameof(CreateApplyDelegate),
-                BindingFlags.NonPublic | BindingFlags.Static,
-                null,
-                new[] { typeof(ScriptableObject) },
-                null);
-
-            if (method == null)
-            {
-                throw new InvalidOperationException("Failed to locate CreateApplyDelegate.");
-            }
-
-            var generic = method.MakeGenericMethod(configType);
-            return (Func<object, object>)generic.Invoke(null, new object[] { instance });
-        }
-
-        private static Func<object, object> CreateApplyDelegate<T>(ScriptableObject instance) where T : notnull
-        {
-            if (instance is not FeatureConfigOverride<T> typed)
-            {
-                throw new InvalidOperationException(
-                    $"Config override '{instance.GetType().FullName}' must derive from FeatureConfigOverride<{typeof(T).Name}>.");
-            }
-
-            return baseline => typed.Apply((T)baseline);
         }
     }
 }
