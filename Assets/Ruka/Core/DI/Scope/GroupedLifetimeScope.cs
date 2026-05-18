@@ -5,9 +5,19 @@ using VContainer;
 
 namespace Ruka.Core.DI
 {
+    /// <summary>
+    /// A <see cref="NestedLifetimeScope"/> that installs services by executing all <see cref="IFeatureInstaller"/> types
+    /// collected from its assigned <see cref="FeatureGroupCollector"/> assets, with optional per-scope config substitution.
+    /// </summary>
     public class GroupedLifetimeScope : NestedLifetimeScope
     {
+        /// <summary>Collectors whose discovered installer types will be installed into this scope. Attach one per required installer group.</summary>
         [SerializeField] protected List<FeatureGroupCollector> collectors;
+
+        /// <summary>
+        /// <see cref="FeatureConfigOverride{T}"/> assets applied to any config registered via <see cref="ContainerBuilderExtensions.RegisterConfig{T}"/> during this scope's build.
+        /// Overrides are applied in list order; the last override for a given config type wins.
+        /// </summary>
         [SerializeField] protected List<ScriptableObject> configOverrides;
 
         protected override void Configure(IContainerBuilder builder)

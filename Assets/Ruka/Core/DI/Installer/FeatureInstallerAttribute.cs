@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 
 namespace Ruka.Core.DI
 {
@@ -45,7 +46,10 @@ namespace Ruka.Core.DI
             Order = order;
         }
 
+        /// <summary>The group marker type this installer belongs to. Must inherit from <see cref="InstallerGroupMarker"/>.</summary>
         public Type Group { get; }
+
+        /// <summary>Execution order within the group. Keep at <c>0</c> unless resolving a last-wins registration conflict.</summary>
         public int Order { get; }
     }
 }

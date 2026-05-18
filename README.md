@@ -1,6 +1,6 @@
 # Ruka
 
-面向中等复杂度 Unity 项目的**架构内核框架**。设计正确优先于功能完整：每个模块有清晰的业务边界，每个约束都有可展开讨论的工程依据。
+面向中等复杂度 Unity 项目的**跨项目稳定框架层**。设计正确优先于功能完整：每个模块有清晰的业务边界，每个约束都有可展开讨论的工程依据。
 
 ---
 
@@ -54,7 +54,7 @@ Ruka
 每个模块只需标注 `[FeatureInstaller]` 属性，Editor 工具链自动将其注册到对应 Scope：
 
 ```csharp
-[FeatureInstaller(InstallerGroups.ProjectGroup, order: 30)]
+[FeatureInstaller(typeof(ProjectGroup), order: 30)]
 public sealed class ClockInstaller : IFeatureInstaller
 {
     public void Install(IContainerBuilder builder)
@@ -278,14 +278,13 @@ builder.RegisterFsm<GameFsm>(config =>
 
 ## 依赖栈
 
-| 库                                                                      | 用途           | 选择理由                                                   |
-| ----------------------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
-| [VContainer](https://github.com/hadashiA/VContainer)                    | DI 容器        | Unity 生态中性能最优、IL2CPP 完整兼容，原生支持 Scope 层级 |
-| [R3](https://github.com/Cysharp/R3)                                     | 响应式编程     | UniRx 现代化替代，与 UniTask 原生互操作                    |
-| [UniTask](https://github.com/Cysharp/UniTask)                           | 异步           | Unity 异步标准，IL2CPP 兼容，替代 System.Threading.Task    |
-| [YooAsset](https://github.com/tuyoogame/YooAsset)                       | 资产管理       | 生产验证的 AB 管理，支持热更资源分包                       |
-| [MessagePipe](https://github.com/Cysharp/MessagePipe)                   | 跨模块消息     | VContainer 原生集成，类型安全发布订阅                      |
-| [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) | 二进制序列化   | 存档序列化，性能与体积均优于 JSON                          |
-| [TriInspector](https://github.com/codewriter-packages/Tri-Inspector)    | Inspector 扩展 | 配置类在 Inspector 中的可视化                              |
+| 库                                                                      | 用途         | 选择理由                                                   |
+| ----------------------------------------------------------------------- | ------------ | ---------------------------------------------------------- |
+| [VContainer](https://github.com/hadashiA/VContainer)                    | DI 容器      | Unity 生态中性能最优、IL2CPP 完整兼容，原生支持 Scope 层级 |
+| [R3](https://github.com/Cysharp/R3)                                     | 响应式编程   | UniRx 现代化替代，与 UniTask 原生互操作                    |
+| [UniTask](https://github.com/Cysharp/UniTask)                           | 异步         | Unity 异步标准，IL2CPP 兼容，替代 System.Threading.Task    |
+| [YooAsset](https://github.com/tuyoogame/YooAsset)                       | 资产管理     | 生产验证的 AB 管理，支持热更资源分包                       |
+| [MessagePipe](https://github.com/Cysharp/MessagePipe)                   | 跨模块消息   | VContainer 原生集成，类型安全发布订阅                      |
+| [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) | 二进制序列化 | 存档序列化，性能与体积均优于 JSON                          |
 
 ---

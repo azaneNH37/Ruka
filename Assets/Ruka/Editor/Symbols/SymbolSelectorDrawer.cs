@@ -126,6 +126,7 @@ namespace Ruka.Editor.Symbols
         }
     }
 
+    /// <summary>Property drawer for <see cref="Symbol{T}"/> fields marked with <see cref="SymbolSelectorAttribute"/>. Auto-applied by Unity; do not reference directly.</summary>
     [CustomPropertyDrawer(typeof(SymbolSelectorAttribute))]
     public sealed class SymbolSelectorDrawer : PropertyDrawer
     {

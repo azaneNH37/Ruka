@@ -4,6 +4,10 @@ using UnityEngine;
 
 namespace Ruka.Core.DI
 {
+    /// <summary>
+    /// Applies a set of <see cref="FeatureConfigOverride{T}"/> assets to config baselines during scope build.
+    /// Constructed by <see cref="GroupedLifetimeScope"/>; do not instantiate directly.
+    /// </summary>
     public sealed class ConfigOverrideApplier
     {
         private readonly Dictionary<Type, List<IConfigOverrideApply>> applyByType = new();

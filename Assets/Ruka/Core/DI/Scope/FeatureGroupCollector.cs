@@ -5,16 +5,25 @@ using Ruka.Utils.Core;
 
 namespace Ruka.Core.DI
 {
+    /// <summary>
+    /// ScriptableObject that maps an installer group to its discovered <see cref="IFeatureInstaller"/> types.
+    /// Populated automatically by <c>FeatureInstallerManifestProcessor</c> on each domain reload.
+    /// </summary>
     [CreateAssetMenu(menuName = "Ruka/DI/Feature Group Collector", fileName = "FeatureGroupCollector")]
     public sealed class FeatureGroupCollector : ScriptableObject
     {
         [SerializeField, TypeFilter(typeof(InstallerGroupMarker))] private SerializableType targetGroup;
         [SerializeField, HideInInspector] private List<SerializableType> qualifiedTypes = new();
 
+        /// <summary>The installer group this collector serves. Must be a concrete <see cref="InstallerGroupMarker"/> subclass.</summary>
         public Type TargetGroup => targetGroup?.Type;
+
+        /// <summary>Installer types discovered for this group, sorted by order then full type name. Do not modify directly.</summary>
         public IReadOnlyList<SerializableType> QualifiedTypes => qualifiedTypes;
 
 #if UNITY_EDITOR
+        /// <summary>Replaces the stored type list. Returns <c>true</c> if the list changed.</summary>
+        /// <remarks>Editor-only. Called exclusively by <c>FeatureInstallerManifestProcessor</c>; do not call from gameplay code.</remarks>
         public bool UpdateQualifiedTypes(IReadOnlyList<Type> types)
         {
             if (types == null)

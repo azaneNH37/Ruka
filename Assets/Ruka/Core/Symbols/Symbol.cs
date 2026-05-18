@@ -4,6 +4,9 @@ using Ruka.Utils.Core;
 
 namespace Ruka.Core.Symbols
 {
+    /// <summary>
+    /// Type-safe string ID parameterized by a marker struct. Not a replacement for enum — use when IDs must be serializable, Inspector-selectable, and scoped to a specific domain type.
+    /// </summary>
     [Serializable]
     public struct Symbol<T> : IEquatable<Symbol<T>>, ISerializationCallbackReceiver where T : struct
     {
@@ -11,6 +14,7 @@ namespace Ruka.Core.Symbols
         [NonSerialized] private int hash;
         [NonSerialized] private bool hashInitialized;
 
+        /// <summary>Constructs a Symbol wrapping the given string value.</summary>
         public Symbol(string value)
         {
             this.value = value ?? string.Empty;
@@ -18,7 +22,10 @@ namespace Ruka.Core.Symbols
             hashInitialized = false;
         }
 
+        /// <summary>The underlying string value. Returns empty string when unset or null.</summary>
         public string Value => value ?? string.Empty;
+
+        /// <summary>Lazily computed FNV-1a hash of Value. Always reflects the current Value; recomputed after Unity deserialization.</summary>
         public int Hash
         {
             get
@@ -28,6 +35,7 @@ namespace Ruka.Core.Symbols
             }
         }
 
+        /// <summary>True when Value is null or empty.</summary>
         public bool IsEmpty => string.IsNullOrEmpty(Value);
 
         public void OnBeforeSerialize() { }

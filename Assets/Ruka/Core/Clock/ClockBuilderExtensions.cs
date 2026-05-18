@@ -1,24 +1,21 @@
 using R3;
 using Ruka.Core.DI;
-using UnityEngine;
 using VContainer;
 
 namespace Ruka.Core.Clock
 {
-    [FeatureInstaller(typeof(SceneGroup), order: 30)]
-    public sealed class ClockInstaller : IFeatureInstaller
+    public static class ClockBuilderExtensions
     {
-        public void Install(IContainerBuilder builder)
+        public static void RegisterClock(
+            this IContainerBuilder builder,
+            Observable<float> deltaSource,
+            TickerConfig config = default)
         {
-            builder.RegisterConfig(new TickerConfig());
-
-            var deltaSource = Observable.EveryUpdate().Select(_ => Time.unscaledDeltaTime);
-
+            builder.RegisterConfig(config);
             builder.Register<LogicTickService>(Lifetime.Singleton)
                 .WithParameter(deltaSource)
                 .As<ILogicClock>()
                 .AsSelf();
-
             builder.Register<LogicClockController>(Lifetime.Singleton);
         }
     }

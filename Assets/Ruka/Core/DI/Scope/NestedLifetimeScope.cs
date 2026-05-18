@@ -7,20 +7,38 @@ using Debug = UnityEngine.Debug;
 
 namespace Ruka.Core.DI
 {
+    /// <summary>
+    /// A <see cref="LifetimeScope"/> with Symbol-based scope naming, flexible parent resolution,
+    /// and automatic <see cref="SelfInjectMarker"/> scanning.
+    /// </summary>
     public class NestedLifetimeScope : LifetimeScope
     {
         [Header("Scope Identity")]
+        /// <summary>Unique name registered in <see cref="ScopeRegistry"/>. Leave empty to skip registration.</summary>
         [SerializeField, SymbolSelector]
         protected Symbol<ScopeIdentifier> scopeId;
 
         [Header("Parent Resolution")]
+        /// <summary>
+        /// When true, walks up the transform hierarchy to find the nearest ancestor <see cref="LifetimeScope"/> as parent.
+        /// Disable when specifying <see cref="parentScope"/> or <see cref="parentScopeId"/> explicitly.
+        /// </summary>
         [SerializeField] protected bool autoParent = true;
+
+        /// <summary>Explicit parent scope reference. Evaluated only when <see cref="autoParent"/> is false and <see cref="parentScopeId"/> is empty.</summary>
         [SerializeField] protected LifetimeScope parentScope;
+
+        /// <summary>
+        /// Resolves the parent by Symbol lookup in <see cref="ScopeRegistry"/>.
+        /// Evaluated only when <see cref="autoParent"/> is false and <see cref="parentScope"/> is null.
+        /// The target scope must have registered before this scope's Awake runs.
+        /// </summary>
         [SerializeField, SymbolSelector]
         protected Symbol<ScopeIdentifier> parentScopeId;
 
         [Header("Debug")]
         [SerializeField]
+        /// <summary>Logs the resolved parent scope name on Awake. Enable to diagnose parent resolution failures.</summary>
         protected bool logParentResolution;
 
         private LifetimeScope resolvedParent;
