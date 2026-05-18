@@ -19,11 +19,14 @@ namespace Ruka.UI.MVVM
         private readonly Transform _parent;
         private readonly IObjectResolver _resolver;
 
-        /// <summary>Active views keyed by TKey. Read from subclasses to access views; use CreateView/RemoveView to modify.</summary>
-        protected readonly Dictionary<TKey, TView> Views = new();
+        private readonly Dictionary<TKey, TView> _views = new();
+        private readonly Dictionary<TKey, TViewModel> _models = new();
 
-        /// <summary>Active ViewModels keyed by TKey. Read from subclasses to access models; use CreateView/RemoveView to modify.</summary>
-        protected readonly Dictionary<TKey, TViewModel> Models = new();
+        /// <summary>Active views keyed by TKey. Read-only; use CreateView/RemoveView to modify.</summary>
+        protected IReadOnlyDictionary<TKey, TView> Views => _views;
+
+        /// <summary>Active ViewModels keyed by TKey. Read-only; use CreateView/RemoveView to modify.</summary>
+        protected IReadOnlyDictionary<TKey, TViewModel> Models => _models;
 
         /// <summary>Shared lifetime container. Add R3 subscriptions here; disposed automatically in Dispose().</summary>
         protected readonly CompositeDisposable Disposables = new();
@@ -39,73 +42,71 @@ namespace Ruka.UI.MVVM
 
         /// <summary>Instantiates the prefab, resolves and binds a new ViewModel, and registers them under id.</summary>
         /// <remarks>If id is already registered, the existing view and ViewModel are removed first.</remarks>
-        protected void CreateView(TKey id)
+        protected (TView view, TViewModel model) CreateView(TKey id)
         {
             RemoveView(id);
-            var (model, view) = CreateInternal();
-            Views[id] = view;
-            Models[id] = model;
+            var pair = CreateInternal();
+            _views[id] = pair.view;
+            _models[id] = pair.model;
+            return pair;
         }
 
         /// <summary>Instantiates the prefab, resolves, initializes, and binds a new ViewModel with creation-time parameters.</summary>
         /// <remarks>
         /// If id is already registered, the existing pair is removed first.
         /// TViewModel must implement IInitializableViewModel{TParam}; throws InvalidOperationException at runtime otherwise.
+        /// Prefer InitializableViewPresenterBase to enforce this constraint at compile time.
         /// </remarks>
-        protected void CreateView<TParam>(TKey id, TParam param)
+        protected (TView view, TViewModel model) CreateView<TParam>(TKey id, TParam param)
         {
             RemoveView(id);
-            var (model, view) = CreateInternal(param);
-            Views[id] = view;
-            Models[id] = model;
+            var pair = CreateInternal(param);
+            _views[id] = pair.view;
+            _models[id] = pair.model;
+            return pair;
         }
 
         /// <summary>Destroys the view GameObject and disposes the ViewModel for id. No-op if id is not registered.</summary>
         protected void RemoveView(TKey id)
         {
-            if (Views.Remove(id, out var view))
+            if (_views.Remove(id, out var view))
             {
-                Object.Destroy(view.gameObject);
-                if (Models.Remove(id, out var model))
+                ReleaseView(view);
+                if (_models.Remove(id, out var model))
                     model.Dispose();
             }
         }
 
-        /// <summary>Opts into per-frame OnUpdate() calls via Observable.EveryUpdate(). Call from Initialize() only; the subscription is bound to Disposables.</summary>
-        protected void EnableUpdate()
-        {
-            Observable.EveryUpdate()
-                .Subscribe(_ => OnUpdate())
-                .AddTo(Disposables);
-        }
+        /// <summary>Acquires a View instance. Override to integrate with an object pool instead of Instantiate.</summary>
+        protected virtual TView AcquireView() => _resolver.Instantiate(_prefab, _parent);
 
-        /// <summary>Per-frame hook. Override when the presenter needs to push data from logic models into ViewModels each frame.</summary>
-        protected virtual void OnUpdate() { }
+        /// <summary>Releases a View instance. Override to return it to an object pool instead of Destroy.</summary>
+        protected virtual void ReleaseView(TView view) => Object.Destroy(view.gameObject);
 
         public virtual void Dispose()
         {
             Disposables.Dispose();
 
-            foreach (var view in Views.Values)
-                Object.Destroy(view.gameObject);
-            foreach (var model in Models.Values)
+            foreach (var view in _views.Values)
+                ReleaseView(view);
+            foreach (var model in _models.Values)
                 model.Dispose();
 
-            Views.Clear();
-            Models.Clear();
+            _views.Clear();
+            _models.Clear();
         }
 
-        private (TViewModel model, TView view) CreateInternal()
+        private (TView view, TViewModel model) CreateInternal()
         {
-            var view = _resolver.Instantiate(_prefab, _parent);
+            var view = AcquireView();
             var model = _resolver.Resolve<TViewModel>();
             view.Bind(model);
-            return (model, view);
+            return (view, model);
         }
 
-        private (TViewModel model, TView view) CreateInternal<TParam>(TParam param)
+        private (TView view, TViewModel model) CreateInternal<TParam>(TParam param)
         {
-            var view = _resolver.Instantiate(_prefab, _parent);
+            var view = AcquireView();
             var model = _resolver.Resolve<TViewModel>();
             if (model is IInitializableViewModel<TParam> initModel)
                 initModel.Initialize(param);
@@ -113,7 +114,7 @@ namespace Ruka.UI.MVVM
                 throw new InvalidOperationException(
                     $"{typeof(TViewModel).Name} does not implement IInitializableViewModel<{typeof(TParam).Name}>");
             view.Bind(model);
-            return (model, view);
+            return (view, model);
         }
     }
 }
