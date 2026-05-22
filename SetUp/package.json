@@ -1,0 +1,15 @@
+{
+  "name": "ruka-setup",
+  "version": "1.0.0",
+  "description": "Interactive setup wizard for Ruka Framework Unity projects",
+  "type": "module",
+  "bin": {
+    "ruka-setup": "./ruka-setup.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1"
+  }
+}
