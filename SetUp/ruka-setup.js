@@ -216,7 +216,7 @@ const RESTORE_BAT = `\
 setlocal
 
 echo.
-echo  Ruka ^— NuGet Restore
+echo  Ruka -- NuGet Restore
 echo  ----------------------------------------
 echo.
 
@@ -277,10 +277,11 @@ function validateRukaRepo(p) {
 }
 
 function toUpmFileUrl(repoRoot) {
-  const abs    = path.resolve(repoRoot.replace(/^["']|["']$/g, ''));
-  const fwd    = abs.replace(/\\/g, '/');
-  const prefix = fwd.startsWith('/') ? 'file:' : 'file:/';
-  return `${prefix}${fwd}/Assets/Ruka`;
+  const abs = path.resolve(repoRoot.replace(/^["']|["']$/g, ''));
+  const fwd = abs.replace(/\\/g, '/');
+  // Unity UPM local path format: "file:C:/path" (Windows) or "file:/path" (Unix)
+  // The resolved path already carries the correct leading character; just prepend "file:".
+  return `file:${fwd}/Assets/Ruka`;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -363,7 +364,8 @@ function setupNugetPackagesFolder(projectPath, nugetPkgs) {
   for (const pkg of nugetPkgs) {
     if (existingIds.has(pkg.id)) skipped.push(pkg.id);
     else {
-      newLines.push(`  <package id="${pkg.id}" version="${pkg.version}" manuallyInstalled="true" />`);
+      const manual = pkg.manuallyInstalled ? ' manuallyInstalled="true"' : '';
+      newLines.push(`  <package id="${pkg.id}" version="${pkg.version}"${manual} />`);
       added.push(pkg.id);
     }
   }
@@ -410,7 +412,7 @@ function writeRestoreScript(projectPath) {
     log.warn('nuget-restore.bat 已存在，跳过');
     return;
   }
-  fs.writeFileSync(batPath, RESTORE_BAT, 'utf8');
+  fs.writeFileSync(batPath, RESTORE_BAT.replace(/\r?\n/g, '\r\n'), 'utf8');
   log.success('nuget-restore.bat 已写入（clone 后运行以恢复 NuGet DLL）');
 }
 
