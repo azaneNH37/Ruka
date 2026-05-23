@@ -143,6 +143,10 @@ opencode.json
 /yoo/
 /Sandbox/
 
+# nuget-packages: track config, ignore installed DLLs
+!/Packages/nuget-packages/
+/Packages/nuget-packages/InstalledPackages/
+
 # Ruka.Generated
 /[Aa]ssets/Ruka.Generated/
 /[Aa]ssets/Ruka.Generated.meta
