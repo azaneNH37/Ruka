@@ -12,7 +12,7 @@ namespace Ruka.UI.Windows
         {
             builder.RegisterConfig(new WindowConfig());
 
-            IReadOnlyList<SceneWindowRegistry> registries = Object.FindObjectsOfType<SceneWindowRegistry>();
+            IReadOnlyList<SceneWindowRegistry> registries = Object.FindObjectsByType<SceneWindowRegistry>(FindObjectsSortMode.None);
 
             builder.Register<WindowManager>(Lifetime.Singleton)
                    .AsImplementedInterfaces()

@@ -26,14 +26,9 @@ namespace Ruka.Core.DI
             {
                 var overrides = configOverrides ?? new List<ScriptableObject>();
                 var applier = new ConfigOverrideApplier(overrides);
-                ConfigOverrideBuildContext.Current = applier;
-                try
+                using (applier.BeginScope())
                 {
                     InstallGroups(builder);
-                }
-                finally
-                {
-                    ConfigOverrideBuildContext.Current = null;
                 }
             }
             catch (Exception ex)

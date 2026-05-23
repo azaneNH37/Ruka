@@ -33,8 +33,10 @@ namespace Ruka.Core.Registry
         public bool TryGet(TKey key, out TValue value)
         {
             if (!IsReady)
-                throw new InvalidOperationException(
-                    $"Registry of type {GetType().Name} is not ready.");
+            {
+                value = default;
+                return false;
+            }
 
             return _items.TryGetValue(key, out value);
         }

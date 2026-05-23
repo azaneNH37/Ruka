@@ -10,6 +10,29 @@ namespace Ruka.Core.DI
     /// </summary>
     public sealed class ConfigOverrideApplier
     {
+        [ThreadStatic]
+        private static ConfigOverrideApplier _current;
+
+        internal static ConfigOverrideApplier Current => _current;
+
+        /// <summary>
+        /// Sets this applier as the active context for the current thread for the duration of the returned scope.
+        /// Restores the previous applier on dispose, making nested scopes safe.
+        /// </summary>
+        internal IDisposable BeginScope()
+        {
+            var previous = _current;
+            _current = this;
+            return new ScopeHandle(previous);
+        }
+
+        private sealed class ScopeHandle : IDisposable
+        {
+            private readonly ConfigOverrideApplier _previous;
+            public ScopeHandle(ConfigOverrideApplier previous) => _previous = previous;
+            public void Dispose() => _current = _previous;
+        }
+
         private readonly Dictionary<Type, List<IConfigOverrideApply>> applyByType = new();
 
         public ConfigOverrideApplier(IReadOnlyList<ScriptableObject> overrides)

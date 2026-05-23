@@ -48,6 +48,10 @@ namespace Ruka.Core.Scenes
 
             try
             {
+                if (_stack.Count == 0)
+                    throw new InvalidOperationException(
+                        "No curtain registered. Push an ISceneTransitionCurtain via ICurtainRegistry before calling TransitionAsync.");
+
                 curtain = _stack[_stack.Count - 1];
 
                 await curtain.ShowAsync(ct);
