@@ -39,6 +39,7 @@ Ruka
 ├── Core.Registry ───── 类型安全启动期注册，AsyncRegistry 异步等待
 ├── Core.Clock ──────── 逻辑 Tick 服务，与 Unity 帧更新解耦
 ├── Core.Random ──────── Xoshiro256** 确定性随机，MasterSeed 多序列
+├── Core.Pool ───────── ObjectPool<T> / ComponentPool<T>，IResettable 自动重置，VContainer 注册扩展
 ├── Core.Symbols ──────── Symbol<T> 横切所有模块
 │
 ├── UI.Windows ──────── 窗口管理，层级排序，IWindowResult<T> 异步返回值
@@ -273,6 +274,124 @@ builder.RegisterFsm<GameFsm>(config =>
 ```
 
 这张转换表在注册时编译为字典，`Transit()` 是 O(1) 查找。Guard 函数允许同一触发器根据运行期条件分叉，而不需要在状态类里嵌 if-else。整个状态机的拓扑在代码里一目了然，不散落在各状态的 Update 逻辑中。
+
+---
+
+### Core.Pool 与 UI.MVVM：池化视图的安全接入
+
+`ViewPresenterBase` 为 Pool 预留了两个显式覆盖点：
+
+- `AcquireView()` — 默认 `Instantiate`，覆盖为 `_pool.Get()`
+- `ReleaseView()` — 默认 `Destroy`，覆盖为 `_pool.Return()`
+
+与之配套，`ViewBase<T>` 在每次 `Bind()` 前自动 Dispose 旧订阅集合——池化视图被重新分配给另一个 ViewModel 时，不会遗留上一轮的 R3 订阅。二者组合后，MVVM 管线的其余部分（`CreateView` / `RemoveView` / `IInitializableViewModel` 初始化流程）无需任何改动。
+
+以战斗中频繁刷新的敌人血条为例：
+
+```csharp
+// ─── ViewModel ─────────────────────────────────────────────────────────────
+// IInitializableViewModel<T>：创建时由 Presenter 传入初始数据，而非构造函数注入
+public class EnemyHudViewModel : IViewModel, IInitializableViewModel<EnemyHudData>
+{
+    public ReactiveProperty<float> HpRatio { get; } = new();
+    public ReactiveProperty<string> Name { get; } = new();
+
+    public void Initialize(EnemyHudData data)
+    {
+        HpRatio.Value = (float)data.CurrentHp / data.MaxHp;
+        Name.Value = data.DisplayName;
+    }
+
+    public void Dispose()
+    {
+        HpRatio.Dispose();
+        Name.Dispose();
+    }
+}
+```
+
+```csharp
+// ─── View ───────────────────────────────────────────────────────────────────
+// ViewBase<T>：每次 Bind 前自动 Dispose 旧 CompositeDisposable
+// 池化视图被重用时不会累积上一轮的 R3 订阅
+public class EnemyHudView : ViewBase<EnemyHudViewModel>
+{
+    [SerializeField] private Image _hpBar;
+    [SerializeField] private TMP_Text _nameLabel;
+
+    protected override void OnBind(EnemyHudViewModel vm, CompositeDisposable disposables)
+    {
+        vm.HpRatio.Subscribe(r => _hpBar.fillAmount = r).AddTo(disposables);
+        vm.Name.Subscribe(n => _nameLabel.text = n).AddTo(disposables);
+    }
+}
+```
+
+```csharp
+// ─── Presenter ──────────────────────────────────────────────────────────────
+// InitializableViewPresenterBase：编译期约束 TViewModel 必须实现 IInitializableViewModel<TParam>
+public class EnemyHudPresenter
+    : InitializableViewPresenterBase<int, EnemyHudData, EnemyHudViewModel, EnemyHudView>
+{
+    private readonly IObjectPool<EnemyHudView> _pool;
+    private readonly IEnemyService _enemies;
+
+    public EnemyHudPresenter(
+        EnemyHudView prefab,
+        Transform parent,
+        IObjectResolver resolver,
+        IObjectPool<EnemyHudView> pool,
+        IEnemyService enemies)
+        : base(prefab, parent, resolver)
+    {
+        _pool = pool;
+        _enemies = enemies;
+    }
+
+    public override void Initialize()
+    {
+        _enemies.OnSpawned
+            .Subscribe(e => CreateView(e.Id, e.HudData))
+            .AddTo(Disposables);
+
+        _enemies.OnDespawned
+            .Subscribe(id => RemoveView(id))
+            .AddTo(Disposables);
+    }
+
+    // ↓ 唯一需要改动的两行：把 Instantiate/Destroy 替换为 Get/Return
+    protected override EnemyHudView AcquireView() => _pool.Get();
+    protected override void ReleaseView(EnemyHudView view) => _pool.Return(view);
+    // Return 内部顺序：ViewBase 已在 Bind 时清理订阅 → IResettable.ResetState（如实现）→ SetActive(false) → 入栈
+}
+```
+
+```csharp
+// ─── 注册（场景专属 Scope，属局部专有注册，允许 GroupedLifetimeScope 子类）──
+public class BattleScope : GroupedLifetimeScope
+{
+    [SerializeField] private EnemyHudView _hudPrefab;
+    [SerializeField] private Transform _hudPoolRoot;
+
+    protected override void InstallGroups(IContainerBuilder builder)
+    {
+        base.InstallGroups(builder);  // 运行所有 [FeatureInstaller] 自动发现的 Installer
+
+        // ComponentPool<EnemyHudView> 注册为 IObjectPool<EnemyHudView>
+        builder.RegisterPool<EnemyHudView>(
+            _hudPrefab, _hudPoolRoot,
+            settings: new PoolSettings { InitialSize = 8, MaxInactiveSize = 16 });
+
+        // ViewModel 必须 Transient：每个 CreateView 调用获得一个独立实例
+        builder.Register<EnemyHudViewModel>(Lifetime.Transient);
+        builder.RegisterEntryPoint<EnemyHudPresenter>()
+            .WithParameter<EnemyHudView>(_hudPrefab)
+            .WithParameter<Transform>(_hudPoolRoot);
+    }
+}
+```
+
+`InitialSize = 8` 预热 8 个 GameObject 避免战斗开始时的 GC 峰值；`MaxInactiveSize = 16` 在大规模消灭后限制闲置栈膨胀，超出上限的实例在 `Return()` 时直接 `Destroy`。`PoolCapacityExceededException`（仅在设置了 `FixedTotalSize` 时触发）则可用于为血条总数设置硬上限。
 
 ---
 
