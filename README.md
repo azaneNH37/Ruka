@@ -1,6 +1,12 @@
 # Ruka
 
-面向中等复杂度 Unity 项目的**跨项目稳定框架层**。设计正确优先于功能完整：每个模块有清晰的业务边界，每个约束都有可展开讨论的工程依据。
+<div align="center">
+
+[![version](https://img.shields.io/badge/version-0.7.0-blue)](https://github.com/azaneNH37/Ruka/releases) [![unity](https://img.shields.io/badge/Unity-2022.3%2B-black?logo=unity)](https://unity.com/releases/lts) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/azaneNH37/Ruka/pulls)
+
+</div>
+
+面向中等复杂度 Unity 项目的**跨项目稳定框架层**。
 
 ---
 
@@ -32,18 +38,18 @@
 Ruka
 ├── Core.DI ─────────── 所有模块的注册基础设施（VContainer 扩展）
 ├── Core.Resources ──── YooAsset 封装，引用计数与作用域释放
-├── Core.StaticData ─── 静态配置加载，Luban 代码生成接入
+├── Core.StaticData ─── 静态配置加载，推荐集成Luban
 ├── Core.Scenes ──────── 场景切换 + Curtain 过渡遮罩系统
-├── Core.Saves ──────── 多槽位存档，ISaveable / ICrossSaveable，MessagePack
+├── Core.Saves ──────── 多槽位存档，ISaveable / ICrossSaveable 接口，SaveKey<T> 类型安全存档键
 ├── Core.FSM ────────── 纯 C# 有限状态机，FsmRules 声明式转换
 ├── Core.Registry ───── 类型安全启动期注册，AsyncRegistry 异步等待
 ├── Core.Clock ──────── 逻辑 Tick 服务，与 Unity 帧更新解耦
 ├── Core.Random ──────── Xoshiro256** 确定性随机，MasterSeed 多序列
-├── Core.Pool ───────── ObjectPool<T> / ComponentPool<T>，IResettable 自动重置，VContainer 注册扩展
-├── Core.Symbols ──────── Symbol<T> 横切所有模块
+├── Core.Pool ───────── 对象池，IResettable 自动重置
+├── Core.Symbols ──────── Symbol<T> 类型安全标识符
 │
-├── UI.Windows ──────── 窗口管理，层级排序，IWindowResult<T> 异步返回值
-└── UI.MVVM ─────────── IView / IViewModel / ViewPresenterBase / ListPresenterBase
+├── UI.Windows ──────── 窗口系统，窗口管理，层级排序，IWindowResult<T> 异步返回值
+└── UI.MVVM ─────────── MVP/MVVM基础设施，提供ListPresenterBase等常用模板
 ```
 
 ---
@@ -291,7 +297,7 @@ builder.RegisterFsm<GameFsm>(config =>
 ```csharp
 // ─── ViewModel ─────────────────────────────────────────────────────────────
 // IInitializableViewModel<T>：创建时由 Presenter 传入初始数据，而非构造函数注入
-public class EnemyHudViewModel : IViewModel, IInitializableViewModel<EnemyHudData>
+public class EnemyHudViewModel : IInitializableViewModel<EnemyHudData>
 {
     public ReactiveProperty<float> HpRatio { get; } = new();
     public ReactiveProperty<string> Name { get; } = new();
@@ -407,3 +413,27 @@ public class BattleScope : GroupedLifetimeScope
 | [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) | 二进制序列化 | 存档序列化，性能与体积均优于 JSON                          |
 
 ---
+
+## 推荐搭配食用
+
+以下库不是 Ruka 的强依赖，但与框架设计高度契合，搭配体验开箱即用。
+
+| 库                                                                   | 用途             | 搭配说明                                                                                                        |
+| -------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| [Luban](https://github.com/focus-creative-games/luban)               | 游戏配置生成     | `Core.StaticData` 的官方对接目标；Excel / JSON → 强类型 C# 代码，支持多种输出格式，生产级配置工作流             |
+| [TriInspector](https://github.com/codewriter-packages/Tri-Inspector) | Inspector 扩展   | 零侵入属性标注，补全 `[SymbolSelector]` 等自定义 Drawer 的展示层；内置分组、校验、只读等常用特性                |
+| [MCP for Unity](https://github.com/CoplayDev/unity-mcp)（Coplay）    | AI 辅助开发      | 将 Claude Code / Cursor 等 AI 助手与 Unity Editor 直连；Ruka 的 `AGENTS.md` 工作流即依赖此桥接                  |
+| [Arch](https://github.com/genaray/Arch)                              | 纯 C# ECS        | Archetype + Chunks 高性能 ECS，Unity DOTS 的轻量替代；纯 C# 实现与 Ruka 逻辑层天然共存，可用于高频实体密集系统  |
+| [ZString](https://github.com/Cysharp/ZString)                        | 零分配字符串构建 | 在高频 Tick 路径（`Core.Clock`）或日志格式化中替代 `string.Format`，彻底消除字符串拼接产生的 GC                 |
+| [ZLogger](https://github.com/Cysharp/ZLogger)                        | 零分配结构化日志 | 基于 ZString 与 C# 10 字符串插值，内置 Unity Debug 日志 Provider，结构化输出零装箱，直接替换 `Debug.Log` 调用链 |
+
+---
+
+## 致谢与参与
+
+感谢所有依赖库的作者——VContainer、R3、UniTask、YooAsset、MessagePipe、MessagePack 的维护者们以严谨的工程态度为 Unity 生态提供了坚实的底座，Ruka 站在这些工作之上。
+
+如果你在使用过程中发现问题、有改进建议，或希望贡献代码，欢迎：
+
+- [提交 Issue](https://github.com/azaneNH37/Ruka/issues) — bug 反馈、设计讨论、功能请求
+- [发起 PR](https://github.com/azaneNH37/Ruka/pulls) — 修复、新模块、文档改进均欢迎

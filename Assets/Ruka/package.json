@@ -2,7 +2,7 @@
   "name": "com.azane.ruka",
   "version": "0.7.0",
   "displayName": "Ruka",
-  "description": "<TBD>",
+  "description": "A cross-project framework layer for mid-scale Unity games.",
   "unity": "2022.3",
   "author": {
     "name": "Azane"
