@@ -1,7 +1,9 @@
-namespace Ruka.UI.MVVM
+namespace Ruka.Core.MVVM
 {
     /// <summary>
-    /// Optional extension for ViewModels that require creation-time parameters. Not a replacement for constructor injection — use when parameters are data-driven and only available at the moment CreateView is called.
+    /// Optional extension for ViewModels that require creation-time parameters. Not a replacement for
+    /// constructor injection — use when parameters are data-driven and only available at the moment
+    /// CreateView is called.
     /// </summary>
     public interface IInitializableViewModel<in TParam> : IViewModel
     {

@@ -1,3 +1,5 @@
+using Ruka.Core.MVVM;
+
 namespace Ruka.UI.MVVM
 {
     /// <summary>MonoBehaviour contract for a view that binds to a typed ViewModel instance.</summary>

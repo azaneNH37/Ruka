@@ -1,3 +1,4 @@
+using Ruka.Core.MVVM;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;

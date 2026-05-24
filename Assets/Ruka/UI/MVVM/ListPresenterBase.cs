@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using ObservableCollections;
 using R3;
+using Ruka.Core.MVVM;
 
 namespace Ruka.UI.MVVM
 {

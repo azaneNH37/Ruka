@@ -13,21 +13,17 @@
 ## 公开 API
 
 ```csharp
-namespace Ruka.UI.MVVM
+// ── Ruka.Core.MVVM（Ruka.Core 程序集）────────────────────────────────────────
+// IViewModel 和 IInitializableViewModel 定义于 Ruka.Core，使业务程序集（Framework、
+// Gameplay）可实现它们而无需引用 Ruka.UI。
+namespace Ruka.Core.MVVM
 {
     /// <summary>
-    /// Marker contract for all ViewModels. Not a replacement for MonoBehaviour — ViewModels are plain C#
-    /// classes that own observable state; Views are the MonoBehaviours that render it.
+    /// Marker contract for all ViewModels. Lives in Ruka.Core so business assemblies can implement it
+    /// without a dependency on Ruka.UI.
+    /// ViewModels are plain C# classes that own observable presentation state; Views are the MonoBehaviours that render it.
     /// </summary>
     public interface IViewModel : IDisposable { }
-
-    /// <summary>MonoBehaviour contract for a view that binds to a typed ViewModel instance.</summary>
-    public interface IView<TViewModel> where TViewModel : IViewModel
-    {
-        /// <summary>Wires up subscriptions between this view and viewModel.</summary>
-        /// <remarks>Called by ViewPresenterBase after ViewModel creation and optional initialization; do not call directly.</remarks>
-        void Bind(TViewModel viewModel);
-    }
 
     /// <summary>
     /// Optional extension for ViewModels that require creation-time parameters. Not a replacement for
@@ -38,6 +34,18 @@ namespace Ruka.UI.MVVM
         /// <summary>Applies creation-time parameters to the ViewModel.</summary>
         /// <remarks>Called by ViewPresenterBase before Bind; do not invoke from outside the presenter pipeline.</remarks>
         void Initialize(TParam param);
+    }
+}
+
+// ── Ruka.UI.MVVM（Ruka.UI 程序集）────────────────────────────────────────────
+namespace Ruka.UI.MVVM
+{
+    /// <summary>MonoBehaviour contract for a view that binds to a typed ViewModel instance.</summary>
+    public interface IView<TViewModel> where TViewModel : IViewModel
+    {
+        /// <summary>Wires up subscriptions between this view and viewModel.</summary>
+        /// <remarks>Called by ViewPresenterBase after ViewModel creation and optional initialization; do not call directly.</remarks>
+        void Bind(TViewModel viewModel);
     }
 
     /// <summary>
@@ -282,8 +290,15 @@ public class GameInstaller : IFeatureInstaller
 - **`ListPresenterBase.Reset` 不传递创建参数**：Reset 处理路径调用无参 `CreateView`，不支持有参数的 ViewModel 初始化。若 ViewModel 需要 `TParam`，不要依赖 Reset 的默认实现。
 - **`RegisterMVVM` 假设 ViewModel 独占于该 Presenter**：方法会将 `TViewModel` 注册为 `Transient`。若同一 ViewModel 类型被多个 Presenter 共用，或需要不同的 Lifetime，则应手动注册 ViewModel 并使用 `builder.RegisterEntryPoint<TPresenter>().WithParameter(...)` 替代。
 
-## 依赖
+## 程序集与依赖
 
+### Ruka.Core（IViewModel、IInitializableViewModel 所在程序集）
+
+业务程序集（Framework、Gameplay）只需引用 `Ruka.Core` 即可实现 ViewModel，无需引用 `Ruka.UI`。
+
+### Ruka.UI（其余所有类型所在程序集）
+
+- `Ruka.Core` — `IViewModel`、`IInitializableViewModel`
 - `VContainer` — `IObjectResolver`、`IContainerBuilder`、`Instantiate`
 - `VContainer.Unity` — `IInitializable`
 - `R3` — `CompositeDisposable`、`Unit`
