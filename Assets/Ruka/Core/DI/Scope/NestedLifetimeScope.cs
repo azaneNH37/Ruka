@@ -13,16 +13,17 @@ namespace Ruka.Core.DI
     /// </summary>
     public class NestedLifetimeScope : LifetimeScope
     {
-        [Header("Scope Identity")]
         /// <summary>Unique name registered in <see cref="ScopeRegistry"/>. Leave empty to skip registration.</summary>
+        [Header("Scope Identity")]
         [SerializeField, SymbolSelector]
         protected Symbol<ScopeIdentifier> scopeId;
-
-        [Header("Parent Resolution")]
+        
         /// <summary>
         /// When true, walks up the transform hierarchy to find the nearest ancestor <see cref="LifetimeScope"/> as parent.
         /// Disable when specifying <see cref="parentScope"/> or <see cref="parentScopeId"/> explicitly.
         /// </summary>
+        [Header("Parent Resolution")]
+        
         [SerializeField] protected bool autoParent = true;
 
         /// <summary>Explicit parent scope reference. Evaluated only when <see cref="autoParent"/> is false and <see cref="parentScopeId"/> is empty.</summary>
@@ -35,13 +36,14 @@ namespace Ruka.Core.DI
         /// </summary>
         [SerializeField, SymbolSelector]
         protected Symbol<ScopeIdentifier> parentScopeId;
-
+        
+        /// <summary>Logs the resolved parent scope name on Awake. Enable to diagnose parent resolution failures.</summary>
         [Header("Debug")]
         [SerializeField]
-        /// <summary>Logs the resolved parent scope name on Awake. Enable to diagnose parent resolution failures.</summary>
         protected bool logParentResolution;
 
         private LifetimeScope resolvedParent;
+        private bool _ownGoMarked;
 
         protected override void Awake()
         {
@@ -68,6 +70,9 @@ namespace Ruka.Core.DI
             }
 
             base.Awake();
+
+            if (_ownGoMarked && Container != null)
+                InjectOwnComponents();
         }
 
         protected override void OnDestroy()
@@ -121,7 +126,13 @@ namespace Ruka.Core.DI
                 if (marker == null) continue;
 
                 var go = marker.gameObject;
-                if (go == gameObject) continue;
+                if (go == gameObject)
+                {
+                    // Handled after base.Awake() via InjectOwnComponents — not added to autoInjectGameObjects
+                    // to avoid recursive injection of children that may already have their own markers.
+                    _ownGoMarked = true;
+                    continue;
+                }
                 if (IsOwnedByNestedScope(go)) continue;
 
                 if (!autoInjectGameObjects.Contains(go))
@@ -131,11 +142,18 @@ namespace Ruka.Core.DI
             }
         }
 
+        private void InjectOwnComponents()
+        {
+            var components = GetComponents<MonoBehaviour>();
+            foreach (var mb in components)
+                if (mb != null) Container.Inject(mb);
+        }
+
         // Checks whether 'target' has an intervening LifetimeScope between itself and this scope's
         // transform. Stops traversal at this scope's own transform to avoid climbing into ancestors.
         private bool IsOwnedByNestedScope(GameObject target)
         {
-            var current = target.transform.parent;
+            var current = target.transform;
             while (current != null && current != transform)
             {
                 var scope = current.GetComponent<LifetimeScope>();

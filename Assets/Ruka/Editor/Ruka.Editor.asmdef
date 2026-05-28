@@ -3,7 +3,8 @@
   "references": [
     "Ruka.Core",
     "Ruka.UI",
-    "Ruka.Utils"
+    "Ruka.Utils",
+    "VContainer"
   ],
   "includePlatforms": [
     "Editor"
