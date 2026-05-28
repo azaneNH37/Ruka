@@ -56,6 +56,8 @@ namespace Ruka.Core.DI
             if (resolvedParent != null)
             {
                 parentReference.Object = resolvedParent;
+                if (resolvedParent.Container == null)
+                    resolvedParent.Build();
             }
 
             if (logParentResolution)
