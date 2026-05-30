@@ -24,12 +24,10 @@ namespace Ruka.Core.FSM
     public sealed class TransitionRule
     {
         public Type ToState { get; }
-        public Func<bool> Guard { get; }
 
-        internal TransitionRule(Type toState, Func<bool> guard = null)
+        internal TransitionRule(Type toState)
         {
             ToState = toState;
-            Guard = guard;
         }
     }
 }

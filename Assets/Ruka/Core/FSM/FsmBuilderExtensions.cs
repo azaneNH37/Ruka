@@ -15,7 +15,6 @@ namespace Ruka.Core.FSM
     public interface IFsmTransitionBuilder
     {
         IFsmConfigurator To<TTo>() where TTo : StateBase;
-        IFsmConfigurator To<TTo>(Func<bool> guard) where TTo : StateBase;
     }
 
     public static class FsmBuilderExtensions
@@ -91,19 +90,14 @@ namespace Ruka.Core.FSM
 
             IFsmConfigurator IFsmTransitionBuilder.To<TTo>()
             {
-                return DoTo<TTo>(null);
+                return DoTo<TTo>();
             }
 
-            IFsmConfigurator IFsmTransitionBuilder.To<TTo>(Func<bool> guard)
-            {
-                return DoTo<TTo>(guard);
-            }
-
-            private IFsmConfigurator DoTo<TTo>(Func<bool> guard) where TTo : StateBase
+            private IFsmConfigurator DoTo<TTo>() where TTo : StateBase
             {
                 var toType = typeof(TTo);
                 _owner._transitions[(_owner._currentFromType, _owner._currentTrigger)]
-                    = new TransitionRule(toType, guard);
+                    = new TransitionRule(toType);
                 _owner.AddStateType(toType);
                 return _owner;
             }

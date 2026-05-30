@@ -34,8 +34,6 @@ namespace Ruka.Core.FSM
             var key = (_currentState.Value.GetType(), trigger);
             if (!_transitionMap.TryGetValue(key, out var rule)) return false;
 
-            if (rule.Guard != null && !rule.Guard()) return false;
-
             var prevState = _currentState.Value;
             var nextState = ResolveOrCache(rule.ToState);
 
