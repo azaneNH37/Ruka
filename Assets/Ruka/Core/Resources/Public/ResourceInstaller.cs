@@ -13,6 +13,8 @@ namespace Ruka.Core.Resources
             builder.Register<AssetLoader>(Lifetime.Singleton)
                 .As<IAssetLoader>()
                 .AsSelf();
+            builder.Register<SceneLoadService>(Lifetime.Singleton)
+                .As<ISceneLoadService>();
             builder.Register<AssetScope>(Lifetime.Scoped)
                 .As<IAssetScope>()
                 .AsSelf();

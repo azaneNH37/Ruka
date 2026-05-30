@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using YooAsset;
 
 namespace Ruka.Core.Resources
@@ -10,7 +11,6 @@ namespace Ruka.Core.Resources
     {
         private readonly ResourcePackage _package;
         private readonly Dictionary<int, AssetHandle> _assetHandles = new();
-        private readonly Dictionary<int, SceneHandle> _sceneHandles = new();
         private int _nextToken;
 
         public PackageAdapter(ResourcePackage package)
@@ -100,23 +100,25 @@ namespace Ruka.Core.Resources
             return result;
         }
 
-        public SceneResHandle LoadSceneAsync(string address)
+        public SceneLoadHandle LoadSceneAsync(string address, LoadSceneMode mode, bool suspendLoad)
         {
-            var handle = _package.LoadSceneAsync(address);
+            var handle = _package.LoadSceneAsync(address, sceneMode: mode, suspendLoad: suspendLoad);
 
-            var token = AllocateToken();
-            _sceneHandles[token.Value] = handle;
-
-            return new SceneResHandle(
+            return new SceneLoadHandle(
                 progressFunc: () => handle.Progress,
-                isLoadedFunc: () => handle.IsDone,
-                activateFunc: async () =>
+                isDoneFunc: () => handle.IsDone,
+                sceneObjectFunc: () => handle.SceneObject,
+                activateAction: () =>
                 {
-                    if (!handle.IsDone)
-                        await handle.ToUniTask();
-                    _sceneHandles.Remove(token.Value);
+                    if (suspendLoad)
+                    {
+                        handle.UnSuspend();
+                        return;
+                    }
+
                     handle.ActivateScene();
-                });
+                },
+                unloadFunc: () => handle.UnloadAsync().ToUniTask());
         }
 
         public void Release(ReleaseToken token)
@@ -128,11 +130,6 @@ namespace Ruka.Core.Resources
                 {
                     assetHandle.Release();
                 }
-            }
-
-            if (_sceneHandles.TryGetValue(token.Value, out var sceneHandle))
-            {
-                _sceneHandles.Remove(token.Value);
             }
         }
 

@@ -1,5 +1,4 @@
 using Cysharp.Threading.Tasks;
-using Ruka.Core.Symbols;
 using UnityEngine;
 
 namespace Ruka.Core.Resources
@@ -38,12 +37,6 @@ namespace Ruka.Core.Resources
                 _readyTcs.TrySetException(ex);
                 Debug.LogError($"[AssetLoader] Initialization failed: {ex}");
             }
-        }
-
-        public async UniTask<SceneResHandle> LoadSceneSingleAsync(Symbol<AssetRef> sceneKey)
-        {
-            await WaitUntilReady();
-            return _package.LoadSceneAsync(sceneKey);
         }
     }
 }

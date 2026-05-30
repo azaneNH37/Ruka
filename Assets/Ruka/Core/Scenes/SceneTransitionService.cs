@@ -6,12 +6,13 @@ using R3;
 using Ruka.Core.Resources;
 using Ruka.Core.Symbols;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Ruka.Core.Scenes
 {
     internal sealed class SceneTransitionService : ISceneTransitionService, ICurtainRegistry, IDisposable
     {
-        private readonly IAssetLoader _assetLoader;
+        private readonly ISceneLoadService _sceneLoadService;
         private readonly List<ISceneTransitionCurtain> _stack = new();
 
         private readonly ReactiveProperty<bool> _isTransitioning = new(false);
@@ -20,9 +21,9 @@ namespace Ruka.Core.Scenes
         public ReadOnlyReactiveProperty<bool> IsTransitioning => _isTransitioning;
         public ReadOnlyReactiveProperty<float> Progress => _progress;
 
-        public SceneTransitionService(IAssetLoader assetLoader)
+        public SceneTransitionService(ISceneLoadService sceneLoadService)
         {
-            _assetLoader = assetLoader;
+            _sceneLoadService = sceneLoadService;
         }
 
         void ICurtainRegistry.Push(ISceneTransitionCurtain curtain)
@@ -56,9 +57,9 @@ namespace Ruka.Core.Scenes
 
                 await curtain.ShowAsync(ct);
 
-                var handle = await _assetLoader.LoadSceneSingleAsync(sceneKey);
+                var handle = _sceneLoadService.Load(sceneKey.Value, LoadSceneMode.Single, suspendLoad: true);
 
-                while (!handle.IsLoaded)
+                while (handle.Progress < 0.9f)
                 {
                     ct.ThrowIfCancellationRequested();
                     _progress.Value = handle.Progress;
@@ -70,7 +71,7 @@ namespace Ruka.Core.Scenes
                 curtain.OnProgressUpdated(1f);
                 await curtain.OnLoadedAsync(ct);
 
-                await handle.ActivateAsync();
+                handle.Activate();
 
                 await curtain.HideAsync(ct);
 
