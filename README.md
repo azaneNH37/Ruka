@@ -39,6 +39,7 @@ Ruka
 ├── Core.DI ─────────── 所有模块的注册基础设施（VContainer 扩展）
 ├── Core.Resources ──── YooAsset 封装，引用计数与作用域释放
 ├── Core.StaticData ─── 静态配置加载，推荐集成Luban
+├── Core.Camera ──────── 响应式摄像机引用注册表，按 Symbol<CameraRole> 查询
 ├── Core.Curtain ──────── 视觉过渡遮罩编排
 ├── Core.Saves ──────── 多槽位存档，ISaveable / ICrossSaveable 接口，SaveKey<T> 类型安全存档键
 ├── Core.FSM ────────── 纯 C# 有限状态机，FsmRules 声明式转换
