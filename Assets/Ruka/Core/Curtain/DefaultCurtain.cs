@@ -3,15 +3,15 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Ruka.Core.Scenes
+namespace Ruka.Core.Curtain
 {
-    internal sealed class DefaultSceneCurtain : ISceneTransitionCurtain
+    internal sealed class DefaultCurtain : ICurtain
     {
         private readonly CanvasGroup _canvasGroup;
 
-        internal DefaultSceneCurtain()
+        internal DefaultCurtain()
         {
-            var root = new GameObject("DefaultSceneCurtain", typeof(RectTransform));
+            var root = new GameObject("DefaultCurtain", typeof(RectTransform));
             Object.DontDestroyOnLoad(root);
 
             var canvas = root.AddComponent<Canvas>();
@@ -43,7 +43,7 @@ namespace Ruka.Core.Scenes
 
         public void OnProgressUpdated(float progress) { }
 
-        public UniTask OnLoadedAsync(CancellationToken ct) => UniTask.CompletedTask;
+        public UniTask OnBeforeRevealAsync(CancellationToken ct) => UniTask.CompletedTask;
 
         public UniTask HideAsync(CancellationToken ct)
         {

@@ -1,15 +1,15 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace Ruka.Core.Scenes
+namespace Ruka.Core.Curtain
 {
-    public interface ISceneTransitionCurtain
+    public interface ICurtain
     {
         UniTask ShowAsync(CancellationToken ct);
 
         void OnProgressUpdated(float progress);
 
-        UniTask OnLoadedAsync(CancellationToken ct);
+        UniTask OnBeforeRevealAsync(CancellationToken ct);
 
         UniTask HideAsync(CancellationToken ct);
     }

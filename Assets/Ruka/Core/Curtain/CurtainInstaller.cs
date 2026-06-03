@@ -5,24 +5,24 @@ using Ruka.Core.Symbols;
 using UnityEngine;
 using VContainer;
 
-namespace Ruka.Core.Scenes
+namespace Ruka.Core.Curtain
 {
     [FeatureInstaller(typeof(ProjectGroup), order: 45)]
-    internal sealed class SceneTransitionInstaller : IFeatureInstaller
+    internal sealed class CurtainInstaller : IFeatureInstaller
     {
         public void Install(IContainerBuilder builder)
         {
-            builder.RegisterConfig(new SceneTransitionConfig());
-            builder.Register<SceneTransitionService>(Lifetime.Singleton)
-                .As<ISceneTransitionService>()
+            builder.RegisterConfig(new CurtainConfig());
+            builder.Register<CurtainService>(Lifetime.Singleton)
+                .As<ICurtainService>()
                 .As<ICurtainRegistry>();
 
             builder.RegisterBuildCallback(container =>
             {
                 var registry = container.Resolve<ICurtainRegistry>();
-                registry.Push(new DefaultSceneCurtain());
+                registry.Push(new DefaultCurtain());
 
-                var config = container.Resolve<SceneTransitionConfig>();
+                var config = container.Resolve<CurtainConfig>();
                 if (config.CurtainPrefabKey is { } key)
                 {
                     var assetScope = container.Resolve<IAssetScope>();
