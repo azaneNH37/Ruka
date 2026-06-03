@@ -1,16 +1,31 @@
+using System;
 using Ruka.Core.Symbols;
 using UnityEngine;
+using VContainer;
 
 namespace Ruka.UI.Windows
 {
     public sealed class SceneWindowRegistry : MonoBehaviour
     {
         [SerializeField, SymbolSelector(AllowManualInput = true)] private Symbol<WindowId> windowId;
-        [SerializeField] private bool isRoot;
-        [SerializeField] private bool attachToRoot;
+
+        private IDisposable _registration;
 
         public Symbol<WindowId> WindowId => windowId;
-        public bool IsRoot => isRoot;
-        public bool AttachToRoot => attachToRoot;
+
+        [Inject]
+        private void Construct(IWindowRegistry registry)
+        {
+            if (windowId.IsEmpty) return;
+            if (!TryGetComponent<WindowBase>(out var window)) return;
+
+            _registration = registry.Register(windowId, window);
+        }
+
+        private void OnDestroy()
+        {
+            _registration?.Dispose();
+            _registration = null;
+        }
     }
 }
