@@ -44,9 +44,39 @@ namespace Ruka.Core.DI
 
         private LifetimeScope resolvedParent;
         private bool _ownGoMarked;
+        private bool _preBuilt;
 
         protected override void Awake()
         {
+            EnsurePreBuilt();
+
+            if (logParentResolution)
+            {
+                Debug.Log(resolvedParent != null
+                    ? $"[NestedScope] {name} -> parent: {resolvedParent.name}"
+                    : $"[NestedScope] {name} -> no parent resolved; falling back to VContainer root");
+            }
+
+            // Guard: if this scope was already built by a child that force-built its parent before
+            // this Awake ran, skip base.Awake to prevent a second Build() call that would create a
+            // duplicate container and re-dispatch IAsyncStartable entry points.
+            if (Container == null)
+                base.Awake();
+
+            if (_ownGoMarked && Container != null)
+                InjectOwnComponents();
+        }
+
+        /// <summary>
+        /// Runs all pre-build initialization (ScopeRegistry registration, marker scanning,
+        /// parent resolution) exactly once. Called from <see cref="Awake"/> and recursively
+        /// when a child scope force-builds this scope before Unity delivers Awake.
+        /// </summary>
+        private void EnsurePreBuilt()
+        {
+            if (_preBuilt) return;
+            _preBuilt = true;
+
             if (!scopeId.IsEmpty)
             {
                 ScopeRegistry.Instance.Register(scopeId, this);
@@ -59,20 +89,12 @@ namespace Ruka.Core.DI
             {
                 parentReference.Object = resolvedParent;
                 if (resolvedParent.Container == null)
+                {
+                    if (resolvedParent is NestedLifetimeScope nested)
+                        nested.EnsurePreBuilt();
                     resolvedParent.Build();
+                }
             }
-
-            if (logParentResolution)
-            {
-                Debug.Log(resolvedParent != null
-                    ? $"[NestedScope] {name} -> parent: {resolvedParent.name}"
-                    : $"[NestedScope] {name} -> no parent resolved; falling back to VContainer root");
-            }
-
-            base.Awake();
-
-            if (_ownGoMarked && Container != null)
-                InjectOwnComponents();
         }
 
         protected override void OnDestroy()
