@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using R3;
+using Ruka.Core.Prefabs;
 using Ruka.Core.Resources;
 using Ruka.Core.Symbols;
 using UnityEngine;
@@ -13,29 +14,30 @@ using VContainer.Unity;
 
 namespace Ruka.UI.Windows
 {
-    public sealed class WindowManager : IWindowService, IWindowRegistry, IAsyncStartable, IDisposable
+    public sealed class WindowManager : IWindowRegistry, IAsyncStartable, IDisposable
     {
         private bool _isReady;
         private readonly UniTaskCompletionSource _ready = new();
         private readonly Dictionary<Symbol<WindowId>, WindowEntry> _windows = new();
         private readonly List<Symbol<WindowId>> _escStack = new();
         private readonly Dictionary<Symbol<WindowId>, List<Symbol<WindowId>>> _children = new();
-        private readonly Dictionary<Symbol<WindowId>, UniTaskCompletionSource<Unit>> _closeTcs = new();
+        private readonly Dictionary<Symbol<WindowId>, UniTaskCompletionSource> _closeTcs = new();
         private readonly Dictionary<WindowLayer, int> _layerCounts = new();
         private readonly Subject<Unit> _onEmptyBackStack = new();
 
-        private readonly IAssetScope _assetScope;
+        private readonly IPrefabFactory _prefabFactory;
         private readonly ISceneLoadService _sceneLoadService;
         private readonly WindowConfig _config;
         private Transform _rootTransform;
         private SceneLoadHandle _uiSceneHandle;
+        private PrefabInstanceHandle _rootCanvasHandle;
 
         public Observable<Unit> OnEmptyBackStack => _onEmptyBackStack;
 
         [Inject]
-        internal WindowManager(IAssetScope assetScope, ISceneLoadService sceneLoadService, WindowConfig config)
+        internal WindowManager(IPrefabFactory prefabFactory, ISceneLoadService sceneLoadService, WindowConfig config)
         {
-            _assetScope = assetScope;
+            _prefabFactory = prefabFactory;
             _sceneLoadService = sceneLoadService;
             _config = config;
         }
@@ -48,6 +50,40 @@ namespace Ruka.UI.Windows
             _ready.TrySetResult();
         }
 
+        #region Internal API for WindowService
+
+        internal UniTask WaitUntilReady() => _ready.Task;
+
+        internal Transform GetParentTransform(Symbol<WindowId> parent)
+        {
+            if (!parent.IsEmpty && _windows.TryGetValue(parent, out var parentEntry) && parentEntry.Window != null)
+                return parentEntry.Window.transform;
+            return _rootTransform;
+        }
+
+        internal void TrackWindow(Symbol<WindowId> windowId, WindowBase window, Symbol<WindowId> parent)
+        {
+            if (_windows.ContainsKey(windowId))
+                throw new InvalidOperationException($"Window with ID '{windowId}' is already open.");
+
+            TrackWindowCore(windowId, window, parent);
+        }
+
+        internal UniTask WaitForCloseAsync(Symbol<WindowId> windowId)
+        {
+            if (!_windows.ContainsKey(windowId))
+                return UniTask.CompletedTask;
+
+            if (_closeTcs.TryGetValue(windowId, out var existing))
+                return existing.Task;
+
+            var tcs = new UniTaskCompletionSource();
+            _closeTcs[windowId] = tcs;
+            return tcs.Task;
+        }
+
+        #endregion
+
         #region IWindowRegistry (self-registration from SceneWindowRegistry)
 
         IDisposable IWindowRegistry.Register(Symbol<WindowId> windowId, WindowBase window)
@@ -55,21 +91,13 @@ namespace Ruka.UI.Windows
             if (windowId.IsEmpty || _windows.ContainsKey(windowId))
                 return Disposable.Empty;
 
-            window.WindowId = windowId;
-            _windows[windowId] = new WindowEntry(window, cancellationRegistration: null);
-            ApplySorting(window);
-
-            if (window.CloseOnBack)
-                _escStack.Add(windowId);
-
+            TrackWindowCore(windowId, window, default);
             return Disposable.Create(() => UnregisterWindow(windowId));
         }
 
         private void UnregisterWindow(Symbol<WindowId> windowId)
         {
             if (!_windows.TryGetValue(windowId, out var entry)) return;
-
-            entry.DisposeCancellationRegistration();
 
             _escStack.Remove(windowId);
             _windows.Remove(windowId);
@@ -80,111 +108,14 @@ namespace Ruka.UI.Windows
 
             if (_closeTcs.TryGetValue(windowId, out var tcs))
             {
-                tcs.TrySetResult(Unit.Default);
+                tcs.TrySetResult();
                 _closeTcs.Remove(windowId);
             }
         }
 
         #endregion
 
-        #region IWindowService
-
-        public async UniTask<TResult> OpenWindowAsync<TResult>(
-            Symbol<WindowId> windowId,
-            Symbol<AssetRef> prefabAsset,
-            WindowOpenContext context,
-            Symbol<WindowId> parent = default)
-        {
-            return await OpenWindowInternal<TResult>(windowId, prefabAsset, parent, payload: null, context);
-        }
-
-        public async UniTask<TResult> OpenWindowAsync<TResult, TPayload>(
-            Symbol<WindowId> windowId,
-            Symbol<AssetRef> prefabAsset,
-            TPayload payload,
-            WindowOpenContext context,
-            Symbol<WindowId> parent = default)
-        {
-            return await OpenWindowInternal<TResult>(windowId, prefabAsset, parent, payload, context);
-        }
-
-        private async UniTask<TResult> OpenWindowInternal<TResult>(
-            Symbol<WindowId> windowId,
-            Symbol<AssetRef> prefabAsset,
-            Symbol<WindowId> parent,
-            object payload,
-            WindowOpenContext context)
-        {
-            await _ready.Task;
-
-            if (context.AssetScope == null)
-                throw new ArgumentException("Window open context must provide an asset scope.", nameof(context));
-
-            context.Lifetime.ThrowIfCancellationRequested();
-
-            if (_windows.ContainsKey(windowId))
-                throw new InvalidOperationException($"Window with ID '{windowId}' is already open.");
-
-            var parentTransform = ResolveParentTransform(parent);
-
-            var instance = await context.AssetScope.InstantiateAsync(prefabAsset);
-            if (!instance.TryGetComponent<WindowBase>(out var window))
-            {
-                UnityEngine.Object.Destroy(instance);
-                throw new InvalidOperationException($"Prefab '{prefabAsset}' has no WindowBase component.");
-            }
-
-            EnsureCanvas(instance);
-            instance.transform.SetParent(parentTransform, false);
-
-            window.WindowId = windowId;
-            _windows[windowId] = new WindowEntry(window, cancellationRegistration: null);
-
-            if (!parent.IsEmpty && _windows.TryGetValue(parent, out var parentEntry) && parentEntry.Window != null)
-            {
-                if (!_children.ContainsKey(parent))
-                    _children[parent] = new List<Symbol<WindowId>>();
-                _children[parent].Add(windowId);
-            }
-
-            if (payload != null)
-                window.SetPayload(payload);
-
-            ApplySorting(window);
-
-            if (window.CloseOnBack)
-                _escStack.Add(windowId);
-
-            if (context.Lifetime.CanBeCanceled)
-            {
-                var cancellationRegistration = context.Lifetime.Register(() =>
-                {
-                    if (_windows.ContainsKey(windowId))
-                        CloseWindowInternal(windowId).Forget();
-                });
-
-                _windows[windowId] = new WindowEntry(window, cancellationRegistration);
-            }
-
-            await window.ShowAsync();
-
-            if (!_windows.ContainsKey(windowId))
-                return default;
-
-            if (window is IWindowResult<TResult> resultWindow)
-                return await resultWindow.GetResultAsync();
-
-            if (typeof(TResult) == typeof(Unit))
-            {
-                var tcs = new UniTaskCompletionSource<Unit>();
-                _closeTcs[windowId] = tcs;
-                return (TResult)(object)await tcs.Task;
-            }
-
-            await CloseWindowInternal(windowId);
-            throw new InvalidOperationException(
-                $"Window '{windowId}' does not implement IWindowResult<{typeof(TResult).Name}>.");
-        }
+        #region Window closing
 
         public async UniTask CloseWindow(Symbol<WindowId> windowId)
         {
@@ -198,8 +129,6 @@ namespace Ruka.UI.Windows
 
             if (!_windows.TryGetValue(windowId, out var entry))
                 return;
-
-            entry.DisposeCancellationRegistration();
 
             if (_children.TryGetValue(windowId, out var childList))
             {
@@ -224,7 +153,7 @@ namespace Ruka.UI.Windows
 
             if (_closeTcs.TryGetValue(windowId, out var tcs))
             {
-                tcs.TrySetResult(Unit.Default);
+                tcs.TrySetResult();
                 _closeTcs.Remove(windowId);
             }
 
@@ -257,11 +186,11 @@ namespace Ruka.UI.Windows
 
         public void Dispose()
         {
-            foreach (var entry in _windows.Values)
-                entry.DisposeCancellationRegistration();
-
             _onEmptyBackStack.OnCompleted();
             _onEmptyBackStack.Dispose();
+
+            _rootCanvasHandle?.Dispose();
+            _rootCanvasHandle = null;
 
             if (_uiSceneHandle != null)
             {
@@ -270,11 +199,31 @@ namespace Ruka.UI.Windows
             }
         }
 
+        private void TrackWindowCore(Symbol<WindowId> windowId, WindowBase window, Symbol<WindowId> parent)
+        {
+            window.WindowId = windowId;
+            _windows[windowId] = new WindowEntry(window);
+
+            EnsureCanvas(window.gameObject);
+            ApplySorting(window);
+
+            if (!parent.IsEmpty && _windows.ContainsKey(parent))
+            {
+                if (!_children.ContainsKey(parent))
+                    _children[parent] = new List<Symbol<WindowId>>();
+                _children[parent].Add(windowId);
+            }
+
+            if (window.CloseOnBack)
+                _escStack.Add(windowId);
+        }
+
         private async UniTask ResolveRootAsync(CancellationToken ct)
         {
             if (_config.CanvasPrefabKey is { } prefabKey)
             {
-                var go = await _assetScope.InstantiateAsync(prefabKey);
+                _rootCanvasHandle = await _prefabFactory.InstantiateAsync(prefabKey, ct: ct);
+                var go = _rootCanvasHandle.GameObject;
                 UnityEngine.Object.DontDestroyOnLoad(go);
                 EnsureCanvas(go);
                 _rootTransform = go.transform;
@@ -324,13 +273,6 @@ namespace Ruka.UI.Windows
                 "Add a Canvas to the root of the scene.");
         }
 
-        private Transform ResolveParentTransform(Symbol<WindowId> parent)
-        {
-            if (!parent.IsEmpty && _windows.TryGetValue(parent, out var parentEntry) && parentEntry.Window != null)
-                return parentEntry.Window.transform;
-            return _rootTransform;
-        }
-
         private void ApplySorting(WindowBase window)
         {
             if (!window.TryGetComponent<Canvas>(out var canvas)) return;
@@ -351,17 +293,10 @@ namespace Ruka.UI.Windows
         private readonly struct WindowEntry
         {
             public readonly WindowBase Window;
-            private readonly IDisposable _cancellationRegistration;
 
-            public WindowEntry(WindowBase window, IDisposable cancellationRegistration)
+            public WindowEntry(WindowBase window)
             {
                 Window = window;
-                _cancellationRegistration = cancellationRegistration;
-            }
-
-            public void DisposeCancellationRegistration()
-            {
-                _cancellationRegistration?.Dispose();
             }
         }
     }

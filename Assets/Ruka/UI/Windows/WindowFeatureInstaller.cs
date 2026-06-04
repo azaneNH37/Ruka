@@ -11,7 +11,11 @@ namespace Ruka.UI.Windows
             builder.RegisterConfig(new WindowConfig());
 
             builder.Register<WindowManager>(Lifetime.Singleton)
+                   .AsSelf()
                    .AsImplementedInterfaces();
+
+            builder.Register<WindowService>(Lifetime.Scoped)
+                   .As<IWindowService>();
         }
     }
 }
