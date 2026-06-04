@@ -6,7 +6,7 @@ namespace Ruka.UI.Windows
 {
     public abstract class WindowBase : MonoBehaviour, IWindowHandle
     {
-        [SerializeField] private WindowLayer layer;
+        [SerializeField] private WindowLayer layer = WindowLayer.Normal;
         [SerializeField] private bool closeOnBack;
 
         public Symbol<WindowId> WindowId { get; internal set; }

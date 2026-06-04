@@ -1,4 +1,3 @@
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using R3;
 using Ruka.Core.Resources;
@@ -11,15 +10,15 @@ namespace Ruka.UI.Windows
         UniTask<TResult> OpenWindowAsync<TResult>(
             Symbol<WindowId> windowId,
             Symbol<AssetRef> prefabAsset,
-            Symbol<WindowId> parent = default,
-            CancellationToken ct = default);
+            WindowOpenContext context,
+            Symbol<WindowId> parent = default);
 
         UniTask<TResult> OpenWindowAsync<TResult, TPayload>(
             Symbol<WindowId> windowId,
             Symbol<AssetRef> prefabAsset,
             TPayload payload,
-            Symbol<WindowId> parent = default,
-            CancellationToken ct = default);
+            WindowOpenContext context,
+            Symbol<WindowId> parent = default);
 
         UniTask CloseWindow(Symbol<WindowId> windowId);
         bool IsOpen(Symbol<WindowId> windowId);

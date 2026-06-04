@@ -17,7 +17,6 @@ namespace Ruka.UI.Windows
     {
         private bool _isReady;
         private readonly UniTaskCompletionSource _ready = new();
-        private readonly CompositeDisposable _disposables = new();
         private readonly Dictionary<Symbol<WindowId>, WindowEntry> _windows = new();
         private readonly List<Symbol<WindowId>> _escStack = new();
         private readonly Dictionary<Symbol<WindowId>, List<Symbol<WindowId>>> _children = new();
@@ -57,7 +56,7 @@ namespace Ruka.UI.Windows
                 return Disposable.Empty;
 
             window.WindowId = windowId;
-            _windows[windowId] = new WindowEntry(window, ct: default);
+            _windows[windowId] = new WindowEntry(window, cancellationRegistration: null);
             ApplySorting(window);
 
             if (window.CloseOnBack)
@@ -69,6 +68,8 @@ namespace Ruka.UI.Windows
         private void UnregisterWindow(Symbol<WindowId> windowId)
         {
             if (!_windows.TryGetValue(windowId, out var entry)) return;
+
+            entry.DisposeCancellationRegistration();
 
             _escStack.Remove(windowId);
             _windows.Remove(windowId);
@@ -91,20 +92,20 @@ namespace Ruka.UI.Windows
         public async UniTask<TResult> OpenWindowAsync<TResult>(
             Symbol<WindowId> windowId,
             Symbol<AssetRef> prefabAsset,
-            Symbol<WindowId> parent = default,
-            CancellationToken ct = default)
+            WindowOpenContext context,
+            Symbol<WindowId> parent = default)
         {
-            return await OpenWindowInternal<TResult>(windowId, prefabAsset, parent, payload: null, ct);
+            return await OpenWindowInternal<TResult>(windowId, prefabAsset, parent, payload: null, context);
         }
 
         public async UniTask<TResult> OpenWindowAsync<TResult, TPayload>(
             Symbol<WindowId> windowId,
             Symbol<AssetRef> prefabAsset,
             TPayload payload,
-            Symbol<WindowId> parent = default,
-            CancellationToken ct = default)
+            WindowOpenContext context,
+            Symbol<WindowId> parent = default)
         {
-            return await OpenWindowInternal<TResult>(windowId, prefabAsset, parent, payload, ct);
+            return await OpenWindowInternal<TResult>(windowId, prefabAsset, parent, payload, context);
         }
 
         private async UniTask<TResult> OpenWindowInternal<TResult>(
@@ -112,18 +113,22 @@ namespace Ruka.UI.Windows
             Symbol<AssetRef> prefabAsset,
             Symbol<WindowId> parent,
             object payload,
-            CancellationToken ct)
+            WindowOpenContext context)
         {
             await _ready.Task;
+
+            if (context.AssetScope == null)
+                throw new ArgumentException("Window open context must provide an asset scope.", nameof(context));
+
+            context.Lifetime.ThrowIfCancellationRequested();
 
             if (_windows.ContainsKey(windowId))
                 throw new InvalidOperationException($"Window with ID '{windowId}' is already open.");
 
             var parentTransform = ResolveParentTransform(parent);
 
-            var instance = await _assetScope.InstantiateAsync(prefabAsset);
-            var window = instance.GetComponent<WindowBase>();
-            if (window == null)
+            var instance = await context.AssetScope.InstantiateAsync(prefabAsset);
+            if (!instance.TryGetComponent<WindowBase>(out var window))
             {
                 UnityEngine.Object.Destroy(instance);
                 throw new InvalidOperationException($"Prefab '{prefabAsset}' has no WindowBase component.");
@@ -133,7 +138,7 @@ namespace Ruka.UI.Windows
             instance.transform.SetParent(parentTransform, false);
 
             window.WindowId = windowId;
-            _windows[windowId] = new WindowEntry(window, ct);
+            _windows[windowId] = new WindowEntry(window, cancellationRegistration: null);
 
             if (!parent.IsEmpty && _windows.TryGetValue(parent, out var parentEntry) && parentEntry.Window != null)
             {
@@ -150,13 +155,15 @@ namespace Ruka.UI.Windows
             if (window.CloseOnBack)
                 _escStack.Add(windowId);
 
-            if (ct.CanBeCanceled)
+            if (context.Lifetime.CanBeCanceled)
             {
-                ct.Register(() =>
+                var cancellationRegistration = context.Lifetime.Register(() =>
                 {
                     if (_windows.ContainsKey(windowId))
                         CloseWindowInternal(windowId).Forget();
-                }).AddTo(_disposables);
+                });
+
+                _windows[windowId] = new WindowEntry(window, cancellationRegistration);
             }
 
             await window.ShowAsync();
@@ -191,6 +198,8 @@ namespace Ruka.UI.Windows
 
             if (!_windows.TryGetValue(windowId, out var entry))
                 return;
+
+            entry.DisposeCancellationRegistration();
 
             if (_children.TryGetValue(windowId, out var childList))
             {
@@ -248,7 +257,9 @@ namespace Ruka.UI.Windows
 
         public void Dispose()
         {
-            _disposables.Dispose();
+            foreach (var entry in _windows.Values)
+                entry.DisposeCancellationRegistration();
+
             _onEmptyBackStack.OnCompleted();
             _onEmptyBackStack.Dispose();
 
@@ -304,8 +315,7 @@ namespace Ruka.UI.Windows
             var rootObjects = scene.GetRootGameObjects();
             foreach (var go in rootObjects)
             {
-                var canvas = go.GetComponent<Canvas>();
-                if (canvas != null)
+                if (go.TryGetComponent<Canvas>(out var canvas))
                     return canvas.transform;
             }
 
@@ -323,8 +333,7 @@ namespace Ruka.UI.Windows
 
         private void ApplySorting(WindowBase window)
         {
-            var canvas = window.GetComponent<Canvas>();
-            if (canvas == null) return;
+            if (!window.TryGetComponent<Canvas>(out var canvas)) return;
 
             canvas.overrideSorting = true;
             if (!_layerCounts.TryGetValue(window.Layer, out var count))
@@ -335,19 +344,24 @@ namespace Ruka.UI.Windows
 
         private static void EnsureCanvas(GameObject instance)
         {
-            if (instance.GetComponent<Canvas>() == null)
+            if (!instance.TryGetComponent<Canvas>(out _))
                 instance.AddComponent<Canvas>();
         }
 
         private readonly struct WindowEntry
         {
             public readonly WindowBase Window;
-            public readonly CancellationToken Ct;
+            private readonly IDisposable _cancellationRegistration;
 
-            public WindowEntry(WindowBase window, CancellationToken ct)
+            public WindowEntry(WindowBase window, IDisposable cancellationRegistration)
             {
                 Window = window;
-                Ct = ct;
+                _cancellationRegistration = cancellationRegistration;
+            }
+
+            public void DisposeCancellationRegistration()
+            {
+                _cancellationRegistration?.Dispose();
             }
         }
     }
