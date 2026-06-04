@@ -6,9 +6,16 @@ using VContainer.Unity;
 
 namespace Ruka.Core.Prefabs
 {
+    /// <summary>
+    /// Owns a prefab instance and its asset reference. Disposing destroys the GO
+    /// and releases the loaded asset. Idempotent — safe to call multiple times.
+    /// </summary>
     public class PrefabInstanceHandle : IDisposable
     {
+        /// <summary>The instantiated root GameObject.</summary>
         public GameObject GameObject { get; }
+
+        /// <summary>The child <see cref="LifetimeScope"/> on the instance root, or null for plain (non-scope) prefabs.</summary>
         public LifetimeScope Scope { get; }
 
         private readonly IAssetScope _assetScope;
@@ -42,8 +49,12 @@ namespace Ruka.Core.Prefabs
         }
     }
 
+    /// <summary>
+    /// Typed variant that also exposes the root component of type <typeparamref name="T"/>.
+    /// </summary>
     public class PrefabInstanceHandle<T> : PrefabInstanceHandle where T : Component
     {
+        /// <summary>The component on the instance root, guaranteed non-null at construction.</summary>
         public T Component { get; }
 
         internal PrefabInstanceHandle(GameObject gameObject, LifetimeScope scope, IAssetScope assetScope, T component)

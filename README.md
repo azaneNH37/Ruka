@@ -28,7 +28,7 @@
 
 **组合优于继承** — 扩展 Scope 能力通过新增 `IFeatureInstaller` 实现，禁止为功能注册创建 `LifetimeScope` 子类；类型语义通过泛型标记（`Symbol<T>` 的 marker struct）而非类型层级表达。
 
-**资源与订阅必须有明确归属** — R3 订阅统一通过 `CompositeDisposable` 或 `CancellationToken` 绑定持有者，禁止裸 Subscribe；加载的资产归属于注入的 `IAssetScope`，随 Scope 销毁自动释放。两者均不允许无所有者地悬挂存在。
+**资源与订阅必须有明确归属** — R3 订阅统一通过 `CompositeDisposable` 或 `CancellationToken` 绑定持有者，禁止裸 Subscribe；加载的资产归属于 `IAssetScope`，预制件实例归属于 `PrefabInstanceHandle`，两者均随所属 Scope 销毁自动释放。资源、订阅、实例均不允许无所有者地悬挂存在。
 
 ---
 
@@ -47,6 +47,7 @@ Ruka
 ├── Core.Clock ──────── 逻辑 Tick 服务，与 Unity 帧更新解耦
 ├── Core.Random ──────── Xoshiro256** 确定性随机，MasterSeed 多序列
 ├── Core.Pool ───────── 对象池，IResettable 自动重置
+├── Core.Prefabs ────── 上下文感知预制件管线，Visual Parent / DI Parent / 资产释放解耦
 ├── Core.Symbols ──────── Symbol<T> 类型安全标识符
 │
 ├── UI.Windows ──────── 窗口系统，全局窗口管理，层级排序，IWindowResult<T> 异步返回值，支持多场景共存
@@ -130,27 +131,29 @@ ProjectScope            ← IAssetLoader（Singleton，全局唯一）
 public class BattleService : IAsyncStartable, IDisposable
 {
     private readonly IAssetScope _assets;
+    private readonly IPrefabFactory _prefabs;
     private readonly ILogicClock _clock;
     private readonly CompositeDisposable _disposables = new();
 
-    public BattleService(IAssetScope assets, ILogicClock clock)
+    public BattleService(IAssetScope assets, IPrefabFactory prefabs, ILogicClock clock)
     {
         _assets = assets;
+        _prefabs = prefabs;
         _clock = clock;
     }
 
     public async UniTask StartAsync(CancellationToken ct)
     {
         var mapTex = await _assets.LoadAssetAsync<Texture2D>(Assets.MapTexture);
-        var unit   = await _assets.InstantiateAsync(Assets.UnitPrefab);
-        // unit 上自动附加 AssetReleaseHook：
-        // Destroy(unit) → token 立即归还，无需手动调用 Release
+        var unit   = await _prefabs.InstantiateAsync(Assets.UnitPrefab);
+        // unit.GameObject 上自动附加 PrefabReleaseHook：
+        // Destroy(unit.GameObject) → handle 自动 Dispose，资产引用归还
 
         _clock.OnTick.Subscribe(_ => Tick()).AddTo(_disposables);
     }
 
     public void Dispose() => _disposables.Dispose();
-    // _assets 由 VContainer 随 Scope 销毁自动 Dispose，无需在此调用
+    // _assets / _prefabs 的实例生命周期由 VContainer Scope 管理，无需在此调用 Dispose
 }
 ```
 
@@ -160,11 +163,33 @@ public class BattleService : IAsyncStartable, IDisposable
 Destroy(battleScopeGO);
 // VContainer 自动调用：
 // ① BattleService.Dispose()  → CompositeDisposable 释放，R3 订阅清除
-// ② AssetScope.Dispose()     → 剩余 token 批量归还，无内存泄漏
+// ② AssetScope.Dispose()     → 剩余 Load token 批量归还
+// ③ Scope CT 触发             → PrefabInstanceHandle 自动 Dispose，GO 销毁 + 资产释放
 // ProjectScope 及其 IAssetLoader 不受影响
 ```
 
-`AssetReleaseHook` 和 `Scope.Dispose()` 是两条互补的释放路径：前者处理单个 GameObject 提前销毁时的即时回收，后者在 Scope 结束时兜底清理全部剩余引用。
+`PrefabReleaseHook` 和 Scope `CancellationToken` 是两条互补的释放路径：前者处理单个 GameObject 被外部提前销毁时的即时回收，后者在 Scope 结束时兜底回收全部实例和资产引用。
+
+---
+
+### IPrefabFactory：Visual Parent ≠ DI Parent
+
+Unity 的 `Object.Instantiate(prefab, parent)` 和 VContainer 的 `CreateChildFromPrefab` 都将 transform 父级与 DI 作用域绑定到同一个对象。但这两个关注点本质独立——窗口挂在 DDOL Canvas 下显示（Visual Parent），却属于 Session Scope 接受注入（DI Parent）。
+
+`IPrefabFactory` 将预制件实例化拆解为可组合的独立轴：
+
+```csharp
+var handle = await prefabFactory.InstantiateAsync<WindowBase>(
+    Assets.ConfirmDialog,
+    o => o.Under(canvasRoot)           // Visual Parent：transform 层级
+          .WithDiParent(sessionScope)  // DI Parent：注入来源
+          .WithInstallation(b => b.RegisterInstance(payload)),
+    ct);
+```
+
+`Action<PrefabOptions>` 回调提供声明式配置，默认值覆盖最常见场景（Visual Parent = 无、DI Parent = Factory 所属 Scope）。管线内部自动检测 prefab 根节点是否携带 `LifetimeScope`，scope 路径走 `parentReference` + `Enqueue`，plain 路径走 `InjectGameObject`，调用方无需感知差异。
+
+`PrefabInstanceHandle` 持有 GameObject 和资产引用的双重所有权，`Dispose()` 同时销毁实例和释放资产。实例生命周期自动绑定到 Factory 所属 Scope 的 `CancellationToken`，Scope 销毁时实例随之回收。
 
 ---
 

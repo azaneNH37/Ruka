@@ -16,7 +16,6 @@ namespace Ruka.Core.Prefabs
         private readonly IAssetScope _assetScope;
         private readonly IObjectResolver _resolver;
         private readonly LifetimeScope _scope;
-        private readonly CancellationToken _defaultCt;
 
         [Inject]
         public PrefabFactory(IAssetScope assetScope, IObjectResolver resolver, LifetimeScope scope)
@@ -24,7 +23,6 @@ namespace Ruka.Core.Prefabs
             _assetScope = assetScope;
             _resolver = resolver;
             _scope = scope;
-            _defaultCt = scope.destroyCancellationToken;
         }
 
         public async UniTask<PrefabInstanceHandle> InstantiateAsync(
@@ -32,10 +30,11 @@ namespace Ruka.Core.Prefabs
             Action<PrefabOptions> configure = null,
             CancellationToken ct = default)
         {
-            var (instance, childScope, instanceAssetScope) = await RunPipeline(key, configure, ct);
+            var (instance, childScope, instanceAssetScope, effectiveCt) =
+                await RunPipeline(key, configure, ct);
 
             var handle = new PrefabInstanceHandle(instance, childScope, instanceAssetScope);
-            FinishHandle(handle, instance, instanceAssetScope, ct);
+            FinishHandle(handle, instance, effectiveCt);
             return handle;
         }
 
@@ -45,7 +44,8 @@ namespace Ruka.Core.Prefabs
             CancellationToken ct = default)
             where T : Component
         {
-            var (instance, childScope, instanceAssetScope) = await RunPipeline(key, configure, ct);
+            var (instance, childScope, instanceAssetScope, effectiveCt) =
+                await RunPipeline(key, configure, ct);
 
             if (!instance.TryGetComponent<T>(out var component))
             {
@@ -56,17 +56,18 @@ namespace Ruka.Core.Prefabs
             }
 
             var handle = new PrefabInstanceHandle<T>(instance, childScope, instanceAssetScope, component);
-            FinishHandle(handle, instance, instanceAssetScope, ct);
+            FinishHandle(handle, instance, effectiveCt);
             return handle;
         }
 
-        private async UniTask<(GameObject instance, LifetimeScope childScope, IAssetScope instanceAssetScope)>
+        private async UniTask<(GameObject instance, LifetimeScope childScope, IAssetScope instanceAssetScope, CancellationToken effectiveCt)>
             RunPipeline(Symbol<AssetRef> key, Action<PrefabOptions> configure, CancellationToken ct)
         {
             var options = new PrefabOptions();
             configure?.Invoke(options);
 
-            var effectiveCt = ct == default ? _defaultCt : ct;
+            var diParent = options.DiParentOverride != null ? options.DiParentOverride : _scope;
+            var effectiveCt = ct == default ? diParent.destroyCancellationToken : ct;
             effectiveCt.ThrowIfCancellationRequested();
 
             var instanceAssetScope = _assetScope.CreateScope();
@@ -75,11 +76,9 @@ namespace Ruka.Core.Prefabs
 
             try
             {
-                // --- Async phase ---
                 var prefab = await instanceAssetScope.LoadAssetAsync<GameObject>(key);
                 effectiveCt.ThrowIfCancellationRequested();
 
-                // --- Sync phase ---
                 var wasActive = prefab.activeSelf;
                 if (wasActive) prefab.SetActive(false);
 
@@ -89,7 +88,6 @@ namespace Ruka.Core.Prefabs
 
                     if (instance.TryGetComponent<LifetimeScope>(out var instanceScope))
                     {
-                        var diParent = options.DiParentOverride != null ? options.DiParentOverride : _scope;
                         instanceScope.parentReference.Object = diParent;
 
                         if (!options.IsManualActivation)
@@ -123,7 +121,7 @@ namespace Ruka.Core.Prefabs
                     if (wasActive) prefab.SetActive(true);
                 }
 
-                return (instance, childScope, instanceAssetScope);
+                return (instance, childScope, instanceAssetScope, effectiveCt);
             }
             catch
             {
@@ -156,16 +154,14 @@ namespace Ruka.Core.Prefabs
             return LifetimeScope.Enqueue(new CompositeInstaller(installers));
         }
 
-        private void FinishHandle(
+        private static void FinishHandle(
             PrefabInstanceHandle handle,
             GameObject instance,
-            IAssetScope instanceAssetScope,
-            CancellationToken ct)
+            CancellationToken effectiveCt)
         {
             var hook = instance.AddComponent<PrefabReleaseHook>();
             hook.Init(handle);
 
-            var effectiveCt = ct == default ? _defaultCt : ct;
             handle.BindLifetime(effectiveCt);
         }
     }
