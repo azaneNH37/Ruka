@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using Ruka.Core.DI;
+using Ruka.Core.Prefabs;
 using Ruka.Core.Resources;
 using Ruka.Core.Symbols;
 using UnityEngine;
@@ -25,16 +26,16 @@ namespace Ruka.Core.Curtain
                 var config = container.Resolve<CurtainConfig>();
                 if (config.CurtainPrefabKey is { } key)
                 {
-                    var assetScope = container.Resolve<IAssetScope>();
-                    LoadProjectCurtainAsync(assetScope, key).Forget();
+                    var prefabFactory = container.Resolve<IPrefabFactory>();
+                    LoadProjectCurtainAsync(prefabFactory, key).Forget();
                 }
             });
         }
 
-        private static async UniTaskVoid LoadProjectCurtainAsync(IAssetScope assetScope, Symbol<AssetRef> key)
+        private static async UniTaskVoid LoadProjectCurtainAsync(IPrefabFactory prefabFactory, Symbol<AssetRef> key)
         {
-            var go = await assetScope.InstantiateAsync(key);
-            Object.DontDestroyOnLoad(go);
+            var handle = await prefabFactory.InstantiateAsync(key);
+            Object.DontDestroyOnLoad(handle.GameObject);
         }
     }
 }

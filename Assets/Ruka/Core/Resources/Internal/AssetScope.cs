@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Ruka.Core.Symbols;
-using UnityEngine;
 using VContainer;
-using VContainer.Unity;
 using Object = UnityEngine.Object;
 
 namespace Ruka.Core.Resources
@@ -38,33 +36,6 @@ namespace Ruka.Core.Resources
             var (asset, token) = await package.LoadAssetAsync<T>(key);
             _trackedTokens.Add(token);
             return asset;
-        }
-
-        public async UniTask<GameObject> InstantiateAsync(
-            Symbol<AssetRef> key,
-            Func<IObjectResolver, GameObject, GameObject> instantiator = null)
-        {
-            var package = await GetPackageReady();
-            var (prefab, prefabToken) = await package.LoadPrefabAsync(key);
-            _trackedTokens.Add(prefabToken);
-
-            GameObject instance;
-            if (instantiator != null)
-            {
-                instance = instantiator(_resolver, prefab);
-            }
-            else if (_resolver != null)
-            {
-                instance = _resolver.Instantiate(prefab);
-            }
-            else
-            {
-                instance = UnityEngine.Object.Instantiate(prefab);
-            }
-
-            var hook = instance.AddComponent<AssetReleaseHook>();
-            hook.Init(prefabToken, this);
-            return instance;
         }
 
         public async UniTask<IList<T>> LoadAllByTagAsync<T>(Symbol<AssetTag> tag) where T : Object
