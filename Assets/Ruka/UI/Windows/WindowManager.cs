@@ -272,15 +272,7 @@ namespace Ruka.UI.Windows
 
             if (_config.UISceneKey is { } sceneKey)
             {
-                _uiSceneHandle = _sceneLoadService.Load(sceneKey.Value, LoadSceneMode.Additive, suspendLoad: true);
-
-                while (_uiSceneHandle.Progress < 0.9f)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
-                }
-
-                _uiSceneHandle.Activate();
+                _uiSceneHandle = await _sceneLoadService.LoadAndReportAsync(sceneKey, LoadSceneMode.Additive, null, ct);
 
                 var scene = _uiSceneHandle.SceneObject;
                 _rootTransform = FindRootCanvasInScene(scene);
