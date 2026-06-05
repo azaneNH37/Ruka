@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Ruka.Core.Symbols;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -65,6 +66,10 @@ namespace Ruka.Core.DI
 
             if (Container != null)
                 InjectOwnComponents();
+
+#if UNITY_EDITOR || DEBUG
+            ValidateUninjectedComponents();
+#endif
         }
 
         /// <summary>
@@ -172,6 +177,58 @@ namespace Ruka.Core.DI
                 if (mb != null) Container.Inject(mb);
         }
 
+
+#if UNITY_EDITOR || DEBUG
+        private void ValidateUninjectedComponents()
+        {
+            var injectedGOs = new HashSet<GameObject> { gameObject };
+            if (autoInjectGameObjects != null)
+                foreach (var go in autoInjectGameObjects)
+                    if (go != null) injectedGOs.Add(go);
+
+            WarnUninjectedRecursive(transform, injectedGOs);
+        }
+
+        private void WarnUninjectedRecursive(Transform current, HashSet<GameObject> injectedGOs)
+        {
+            if (current != transform && current.TryGetComponent<LifetimeScope>(out _))
+                return;
+
+            if (!injectedGOs.Contains(current.gameObject))
+            {
+                foreach (var mb in current.GetComponents<MonoBehaviour>())
+                {
+                    if (mb == null) continue;
+                    if (HasInjectMembers(mb.GetType()))
+                    {
+                        Debug.LogWarning(
+                            $"[NestedScope] {mb.GetType().Name} on '{current.gameObject.name}' has [Inject] members " +
+                            $"but is not in scope '{name}' injection path. Add SelfInjectMarker to the GameObject.",
+                            current.gameObject);
+                        break;
+                    }
+                }
+            }
+
+            for (var i = 0; i < current.childCount; i++)
+                WarnUninjectedRecursive(current.GetChild(i), injectedGOs);
+        }
+
+        private static bool HasInjectMembers(System.Type type)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            foreach (var member in type.GetMembers(flags))
+            {
+                foreach (var attr in member.GetCustomAttributes(inherit: true))
+                {
+                    var t = attr.GetType();
+                    if (t.Name == "InjectAttribute" && t.Namespace == "VContainer")
+                        return true;
+                }
+            }
+            return false;
+        }
+#endif
 
         // Checks whether 'target' has an intervening LifetimeScope between itself and this scope's
         // transform. Stops traversal at this scope's own transform to avoid climbing into ancestors.
