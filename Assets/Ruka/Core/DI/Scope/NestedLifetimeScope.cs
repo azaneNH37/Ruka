@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Ruka.Core.Symbols;
 using UnityEngine;
 using UnityEngine.Serialization;
+using VContainer;
 using VContainer.Unity;
 using Debug = UnityEngine.Debug;
 
@@ -43,7 +44,6 @@ namespace Ruka.Core.DI
         protected bool logParentResolution;
 
         private LifetimeScope resolvedParent;
-        private bool _ownGoMarked;
         private bool _preBuilt;
 
         protected override void Awake()
@@ -63,7 +63,7 @@ namespace Ruka.Core.DI
             if (Container == null)
                 base.Awake();
 
-            if (_ownGoMarked && Container != null)
+            if (Container != null)
                 InjectOwnComponents();
         }
 
@@ -83,17 +83,24 @@ namespace Ruka.Core.DI
             }
 
             ScanSelfInjectMarkers();
-            resolvedParent = ResolveParentScope();
 
-            if (resolvedParent != null)
+            // Respect externally-set parent (e.g. PrefabFactory.WithDiParent)
+            if (parentReference.Object != null)
             {
-                parentReference.Object = resolvedParent;
-                if (resolvedParent.Container == null)
-                {
-                    if (resolvedParent is NestedLifetimeScope nested)
-                        nested.EnsurePreBuilt();
-                    resolvedParent.Build();
-                }
+                resolvedParent = parentReference.Object as LifetimeScope;
+            }
+            else
+            {
+                resolvedParent = ResolveParentScope();
+                if (resolvedParent != null)
+                    parentReference.Object = resolvedParent;
+            }
+
+            if (resolvedParent != null && resolvedParent.Container == null)
+            {
+                if (resolvedParent is NestedLifetimeScope nested)
+                    nested.EnsurePreBuilt();
+                resolvedParent.Build();
             }
         }
 
@@ -148,13 +155,7 @@ namespace Ruka.Core.DI
                 if (marker == null) continue;
 
                 var go = marker.gameObject;
-                if (go == gameObject)
-                {
-                    // Handled after base.Awake() via InjectOwnComponents — not added to autoInjectGameObjects
-                    // to avoid recursive injection of children that may already have their own markers.
-                    _ownGoMarked = true;
-                    continue;
-                }
+                if (go == gameObject) continue;
                 if (IsOwnedByNestedScope(go)) continue;
 
                 if (!autoInjectGameObjects.Contains(go))
@@ -170,6 +171,7 @@ namespace Ruka.Core.DI
             foreach (var mb in components)
                 if (mb != null) Container.Inject(mb);
         }
+
 
         // Checks whether 'target' has an intervening LifetimeScope between itself and this scope's
         // transform. Stops traversal at this scope's own transform to avoid climbing into ancestors.

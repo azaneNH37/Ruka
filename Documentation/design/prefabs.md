@@ -23,7 +23,7 @@ Core.Prefabs 通过复制 `CreateChildFromPrefab` 的核心逻辑（设置 `pare
 | 特性 | 说明 |
 |---|---|
 | Visual Parent / DI Parent 完全独立 | 调用方可以将实例挂在任意 transform 下，同时从任意 scope 注入 |
-| 统一管线 | scope prefab 和 plain prefab 使用同一 API，内部自动分流 |
+| 统一管线 | scope-boundary-aware 遍历统一处理任意 scope 拓扑，不再有 Path A/B 分流 |
 | 每实例资产追踪 | 子 `IAssetScope` 精确对应单个实例的资产生命周期 |
 | CT 跟随 DI Parent | 默认 CT 取自 DI parent（覆盖后的或 factory scope），一个 token 同时控制异步取消和实例生命周期 |
 | `Action<PrefabOptions>` 回调 | 声明式配置，默认值覆盖最常见场景，调用方只指定需要偏离的轴 |
@@ -42,6 +42,7 @@ Core.Prefabs 通过复制 `CreateChildFromPrefab` 的核心逻辑（设置 `pare
 - **prefab 在实例化前被临时 `SetActive(false)` 然后在 finally 中恢复** 是有意为之，原因：防止 `Object.Instantiate` 时触发 `Awake`，确保 `parentReference` 和 `Enqueue` 在 `Awake` 之前完成设置。
 - **不提供 `DestroyAsync` 方法** 是有意为之，原因：销毁前的过渡动画属于上层模块的关注点（窗口系统、gameplay 模块），factory 只负责创建和释放。上层在动画完成后调用 `handle.Dispose()` 即可。
 - **`PrefabReleaseHook` 使用 `OnDestroy` 而非 `IDisposable`** 是有意为之，原因：hook 必须拦截外部代码对 GO 的 `Object.Destroy` 调用，这只能通过 `MonoBehaviour.OnDestroy` 实现。
+- **注入遍历在 scope 边界止步** 是有意为之，原因：scope 是注入权威边界——scope 管辖的组件只应由该 scope 的容器注入。管线对 GO 树执行深度优先遍历，遇到 `LifetimeScope` 时设定其 DI parent 并跳过子树，由 scope 自行在 `Awake` → `Build` 时注入。这保证任意 scope 拓扑（根有 scope、子有 scope、多层嵌套）均被正确处理。
 
 ## 已知与设计意图的偏差
 

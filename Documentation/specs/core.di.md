@@ -113,6 +113,11 @@ namespace Ruka.Core.DI
         // LifetimeScope parentScope               — explicit parent; used when autoParent is false
         // Symbol<ScopeIdentifier> parentScopeId   — Symbol lookup fallback; used when autoParent is false and parentScope is null
         // bool logParentResolution                — debug log on Awake
+
+        // Injection behavior:
+        // - Scope root GO: all MonoBehaviours are unconditionally injected after Build
+        // - Child GOs with SelfInjectMarker: added to autoInjectGameObjects
+        // - Child GOs under a nested LifetimeScope: skipped (owned by that scope)
     }
 
     /// <summary>
@@ -127,7 +132,8 @@ namespace Ruka.Core.DI
     }
 
     /// <summary>
-    /// Marks a GameObject for automatic injection by the nearest enclosing NestedLifetimeScope.
+    /// Marks a non-scope GameObject for automatic injection by the nearest enclosing NestedLifetimeScope.
+    /// Not needed on the scope's own GameObject — scope root components are always injected.
     /// </summary>
     public sealed class SelfInjectMarker : MonoBehaviour { }
 
@@ -195,7 +201,8 @@ public sealed class HardModeCombatOverride : FeatureConfigOverride<CombatConfig>
 //    The scene scope finds its parent by Symbol lookup at Awake, regardless of load order.
 
 // 8. MonoBehaviour injection without Inspector wiring
-//    Add SelfInjectMarker component to the GameObject; the enclosing NestedLifetimeScope
+//    Components on the scope's own GameObject are always injected — no marker needed.
+//    For child GameObjects, add SelfInjectMarker; the enclosing NestedLifetimeScope
 //    discovers it on Awake and adds it to autoInjectGameObjects automatically.
 ```
 

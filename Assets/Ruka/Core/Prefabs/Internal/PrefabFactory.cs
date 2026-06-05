@@ -86,35 +86,10 @@ namespace Ruka.Core.Prefabs
                 {
                     instance = InstantiateRaw(prefab, options);
 
-                    if (instance.TryGetComponent<LifetimeScope>(out var instanceScope))
-                    {
-                        instanceScope.parentReference.Object = diParent;
+                    childScope = InjectPrefabTree(instance, diParent, options, out var activatedByScope);
 
-                        if (!options.IsManualActivation)
-                        {
-                            if (options.Installers != null)
-                            {
-                                using var _ = EnqueueInstallers(options.Installers);
-                                instance.SetActive(true);
-                            }
-                            else
-                            {
-                                instance.SetActive(true);
-                            }
-                        }
-
-                        childScope = instanceScope;
-                    }
-                    else
-                    {
-                        var resolver = options.DiParentOverride != null
-                            ? options.DiParentOverride.Container
-                            : _resolver;
-                        resolver.InjectGameObject(instance);
-
-                        if (!options.IsManualActivation)
-                            instance.SetActive(true);
-                    }
+                    if (!activatedByScope && !options.IsManualActivation)
+                        instance.SetActive(true);
                 }
                 finally
                 {
@@ -128,6 +103,56 @@ namespace Ruka.Core.Prefabs
                 if (instance != null) Object.Destroy(instance);
                 instanceAssetScope.Dispose();
                 throw;
+            }
+        }
+
+        private LifetimeScope InjectPrefabTree(
+            GameObject root, LifetimeScope diParent, PrefabOptions options, out bool activatedByScope)
+        {
+            if (root.TryGetComponent<LifetimeScope>(out var rootScope))
+            {
+                rootScope.parentReference.Object = diParent;
+                activatedByScope = !options.IsManualActivation;
+
+                if (activatedByScope)
+                {
+                    if (options.Installers != null)
+                    {
+                        using var _ = EnqueueInstallers(options.Installers);
+                        root.SetActive(true);
+                    }
+                    else
+                    {
+                        root.SetActive(true);
+                    }
+                }
+
+                return rootScope;
+            }
+
+            activatedByScope = false;
+            var resolver = diParent.Container ?? _resolver;
+            InjectGameObjectScopeBounded(root.transform, resolver, diParent);
+            return null;
+        }
+
+        private static void InjectGameObjectScopeBounded(Transform current, IObjectResolver resolver, LifetimeScope diParent)
+        {
+            var components = current.GetComponents<MonoBehaviour>();
+            foreach (var mb in components)
+                if (mb != null) resolver.Inject(mb);
+
+            for (var i = 0; i < current.childCount; i++)
+            {
+                var child = current.GetChild(i);
+
+                if (child.TryGetComponent<LifetimeScope>(out var childScope))
+                {
+                    childScope.parentReference.Object = diParent;
+                    continue;
+                }
+
+                InjectGameObjectScopeBounded(child, resolver, diParent);
             }
         }
 

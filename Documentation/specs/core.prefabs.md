@@ -2,7 +2,7 @@
 
 ## 职责
 
-通过 `IPrefabFactory` 提供上下文感知的预制件实例化管线：将资产加载（YooAsset `IAssetScope`）、DI 注入（VContainer `LifetimeScope` / `IObjectResolver`）、transform 层级挂载、激活时机和实例生命周期作为独立可组合的轴暴露给调用方，使 Visual Parent 与 DI Parent 可以独立指定。管线内部自动检测 prefab 根节点是否携带 `LifetimeScope`，对 scope 路径和 plain 路径采用不同的注入策略，调用方无需感知差异。
+通过 `IPrefabFactory` 提供上下文感知的预制件实例化管线：将资产加载（YooAsset `IAssetScope`）、DI 注入（VContainer `LifetimeScope` / `IObjectResolver`）、transform 层级挂载、激活时机和实例生命周期作为独立可组合的轴暴露给调用方，使 Visual Parent 与 DI Parent 可以独立指定。管线内部对实例 GO 树执行 scope-boundary-aware 深度遍历，保证每个组件被其所属容器注入，scope 边界作为注入权威边界，调用方无需感知 prefab 内部的 scope 拓扑。
 
 ## 非职责
 
@@ -163,7 +163,7 @@ public class WindowOpener
 
 - **`Lifetime.Scoped` 即默认 DI Parent**：`PrefabFactory` 注册为 `Scoped`，从哪个 Scope 注入就以该 Scope 的 `LifetimeScope` 为默认 DI Parent 和默认 CT 来源。不需要每次调用都传 `WithDiParent`。
 - **CT 跟随 DI Parent**：`ct` 参数在异步加载阶段用作操作取消；实例化完成后，同一 token 被绑定为实例生命周期——token 触发时 handle 自动 Dispose。传入 `default` 时回退到 **DI parent**（`WithDiParent` 覆盖后的 scope，或 factory 所属 scope）的 `destroyCancellationToken`，而非 `CancellationToken.None`。这保证 `WithDiParent(X)` 时实例生命周期自动对齐到 X，避免 DI parent 与 CT 来源不一致导致实例早亡。
-- **Scope prefab 自动检测**：管线通过 `TryGetComponent<LifetimeScope>` 检测 prefab 根节点。scope 路径设置 `parentReference.Object` 并通过 `LifetimeScope.Enqueue` 注入额外 installer；plain 路径调用 `IObjectResolver.InjectGameObject`。调用方无需区分。
+- **Scope-boundary-aware 注入**：管线对实例 GO 树执行深度优先遍历。无 `LifetimeScope` 的 GO 由调用方容器逐组件注入；遇到 `LifetimeScope` 时设定其 DI parent 并跳过该子树（由 scope 自行管辖）。根节点有 scope 只是遍历首步即命中 scope 规则的特例，不再是独立路径。调用方无需感知 prefab 内部的 scope 拓扑。
 - **`ManualActivation` + `WithInstallation` 的陷阱**：`LifetimeScope.Enqueue` 使用全局静态栈，在 `Awake`（即 `SetActive(true)`）时消费。如果 `ManualActivation` 为 true，factory 不会激活 GO，也不会 Enqueue installer。调用方必须在手动激活前自行 `LifetimeScope.Enqueue`。
 - **每实例独立 `IAssetScope`**：每次 `InstantiateAsync` 创建一个子 `IAssetScope` 来追踪加载的 prefab 资产。`handle.Dispose()` 释放该子 scope，归还资产引用。父 `IAssetScope` 不受影响。
 - **失败自动回滚**：管线中任何步骤抛异常（加载失败、CT 取消、组件缺失），已创建的 GO 会被 `Object.Destroy`，子 `IAssetScope` 会被 Dispose，异常重新抛出。

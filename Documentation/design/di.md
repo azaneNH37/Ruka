@@ -57,6 +57,10 @@ Core.DI 明确**不**提供 Zenject 的 Signals、MemoryPool、Factory 等设施
 
 - **`FeatureInstallerAttribute` 使用 `Type` 而非 `string`**：有意为之。C# attribute 参数必须是编译期常量，`Symbol<T>` struct 不满足条件。使用 `typeof(XGroup)` 提供编译期语法检查（拼写错误即编译失败），并允许 IDE 重命名安全追踪。运行时的 `IsAssignableFrom` 校验提供语义保障。
 
+- **Scope 根 GO 组件无条件注入**：有意为之。Ruka 选择了"场景树即 DI 拓扑"的架构——scope 是注入权威边界，scope 根 GO 上的组件天然属于该 scope 管辖。`SelfInjectMarker` 的职责仅限于标记 scope 子树中非 scope GO 的注入 opt-in，不再负责 scope 根 GO 的注入控制。
+
+- **`EnsurePreBuilt` 尊重外部设定的 `parentReference.Object`**：有意为之。`PrefabFactory` 在实例化 scope prefab 时通过 `instanceScope.parentReference.Object = diParent` 设定 DI parent。`EnsurePreBuilt` 检查此字段是否已被外部设定，已设定则跳过自动解析，确保 `WithDiParent()` 语义不被覆写。
+
 ---
 
 ## 已知与设计意图的偏差
