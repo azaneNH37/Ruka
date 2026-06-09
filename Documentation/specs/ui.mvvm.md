@@ -161,6 +161,10 @@ namespace Ruka.UI.MVVM
         /// <remarks>Call once from Initialize() after the list model is available. The subscription is bound to Disposables.</remarks>
         protected void BindList(IReadOnlyObservableList<TItem> model);
 
+        /// <summary>Creates and positions a view for one list item during initial sync and incremental adds/replaces/resets.</summary>
+        /// <param name="modelIndex">The item's current index in the bound list; the default implementation uses it as the sibling index.</param>
+        protected virtual void CreateItemView(TItem item, int modelIndex);
+
         /// <summary>Handles a single collection delta. Move is a no-op by default; override if reordering must be reflected in the view hierarchy.</summary>
         protected virtual void ApplyDelta(IReadOnlyObservableList<TItem> model, CollectionChangedEvent<TItem> delta);
 
@@ -260,6 +264,13 @@ public sealed class EnemyListPresenter
 
     public override void Initialize() => BindList(_enemies.Enemies);
     protected override int GetKey(EnemyData item) => item.Id;
+
+    // Override when item ViewModels require creation-time data.
+    protected override void CreateItemView(EnemyData item, int modelIndex)
+    {
+        var pair = CreateView(item.Id, item);
+        pair.view.transform.SetSiblingIndex(modelIndex);
+    }
 }
 
 // 4. 注册 — RegisterMVVM 自动注册 ViewModel 为 Transient，编译期验证类型匹配
@@ -287,7 +298,7 @@ public class GameInstaller : IFeatureInstaller
 - **`AcquireView`/`ReleaseView` 是框架扩展点，不是业务 API**：默认实现分别调用 `Instantiate` 和 `Destroy`；对象池子类覆写这两个方法以接入池。不要在业务逻辑中直接调用。
 - **`CreateView<TParam>` 运行时检查**：`ViewPresenterBase` 对 `IInitializableViewModel<TParam>` 的检查在运行时进行。若需编译期保证，继承 `InitializableViewPresenterBase`（`where TViewModel : IInitializableViewModel<TParam>`）。
 - **`ListPresenterBase.Move` 为显式 no-op**：`ApplyDelta` 的 `Move` case 不触发任何视图变更；若 UI 需要反映列表顺序，覆写 `ApplyDelta`。
-- **`ListPresenterBase.Reset` 不传递创建参数**：Reset 处理路径调用无参 `CreateView`，不支持有参数的 ViewModel 初始化。若 ViewModel 需要 `TParam`，不要依赖 Reset 的默认实现。
+- **`ListPresenterBase.CreateItemView` 是 item 到 ViewModel 的扩展点**：`BindList` 的初始同步、Add、Replace、Reset 都通过该钩子创建视图。若 item ViewModel 需要创建参数，覆写此方法并调用 `CreateView(id, item)`；`modelIndex` 表示 item 当前在绑定列表中的位置，默认用于设置 sibling index。
 - **`RegisterMVVM` 假设 ViewModel 独占于该 Presenter**：方法会将 `TViewModel` 注册为 `Transient`。若同一 ViewModel 类型被多个 Presenter 共用，或需要不同的 Lifetime，则应手动注册 ViewModel 并使用 `builder.RegisterEntryPoint<TPresenter>().WithParameter(...)` 替代。
 
 ## 程序集与依赖

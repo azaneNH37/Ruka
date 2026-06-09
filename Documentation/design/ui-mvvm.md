@@ -29,13 +29,14 @@
 | 代价 | 说明 |
 |---|---|
 | 无内置对象池 | 默认 `AcquireView` 调用 `Instantiate`；虚拟列表等高频场景需配合 Ruka.Pool 覆写 |
-| `ListPresenterBase.Reset` 不传递创建参数 | Reset 处理路径调用无参 `CreateView`，对需要 `TParam` 的 ViewModel 存在静默行为退化 |
+| 列表 item 初始化仍需显式覆写 | `ListPresenterBase` 默认只知道 `GetKey(item)` 和 `modelIndex`；需要 `TItem -> TParam` 的列表必须覆写 `CreateItemView` |
 | `Move` 为 no-op | 响应列表重排需覆写 `ApplyDelta`，默认实现不处理 |
 | `RegisterMVVM` 假设 ViewModel 独占 | 共用 ViewModel 或非 Transient 生命周期的场景需要手动注册 |
 
 ## 已确认的设计意图
 
 - **`CreateView` 隐式替换旧实例**：是有意为之，原因：对同一 id 的重复创建视为语义上的"替换"，避免调用方先 `RemoveView` 再 `CreateView` 的样板代码。
+- **`ListPresenterBase` 统一通过 `CreateItemView` 创建 item 视图**：是有意为之，原因：初始同步、Add、Replace、Reset 都属于列表 item 到 View/ViewModel 的同一映射过程，必须走同一个扩展点以避免初始化语义分裂；`modelIndex` 只是创建时的列表位置，不代表业务排序规则。
 - **`Move` case 为 no-op**：是有意为之，原因：UI 中的顺序通常由布局组件（如 `VerticalLayoutGroup`）控制，View GameObject 的 sibling index 并不等于数据顺序；移动不应触发销毁重建，以免播放错误的创建动画。
 - **`IInitializableViewModel<TParam>` 在 `ViewPresenterBase` 中为运行时可选检查**：是有意为之，原因：在基类中同时支持无参和有参两种创建路径保持 API 面统一；需要编译期保证的场景通过 `InitializableViewPresenterBase` 独立基类覆盖，不修改 `ViewPresenterBase` 的约束。
 - **`ViewBase<TViewModel>` 为可选基类**：是有意为之，原因：有自定义 MonoBehaviour 基类（如带动画的 `AnimatedView`）的项目无法同时继承 `ViewBase`；非 rebind 场景不应被强制约束。`VirtualListPresenterBase` 通过 `TView : ViewBase<TViewModel>` 约束在需要时自然收紧。
@@ -110,6 +111,3 @@ Nbr.Framework / Nbr.Gameplay (ViewModel, Logic)
 | ViewModel 持有 View 引用 | ViewModel 不感知 View，View 单向订阅 ViewModel |
 | ViewModel 放入 `Nbr.UI` 程序集 | ViewModel 与其依赖的 Logic 同程序集（Framework/Gameplay） |
 
-## 已知与设计意图的偏差
-
-- **`ListPresenterBase.Reset` 静默丢弃创建参数**：应为当 ViewModel 需要 `TParam` 时，Reset 路径也能传递参数；当前默认实现调用无参 `CreateView`，对使用 `InitializableViewPresenterBase` 的子类，Reset 事件会绕过初始化逻辑而不报错。

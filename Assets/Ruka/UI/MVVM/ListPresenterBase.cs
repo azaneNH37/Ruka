@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using ObservableCollections;
@@ -22,12 +21,20 @@ namespace Ruka.UI.MVVM
         /// <remarks>Call once from Initialize() after the list model is available. The subscription is bound to Disposables.</remarks>
         protected void BindList(IReadOnlyObservableList<TItem> model)
         {
-            foreach (var item in model)
-                CreateView(GetKey(item));
+            for (var i = 0; i < model.Count; i++)
+                CreateItemView(model[i], i);
 
             model.ObserveChanged()
                 .Subscribe(e => ApplyDelta(model, e))
                 .AddTo(Disposables);
+        }
+
+        /// <summary>Creates and positions a view for one list item during initial sync and incremental adds/replaces/resets.</summary>
+        /// <param name="modelIndex">The item's current index in the bound list; the default implementation uses it as the sibling index.</param>
+        protected virtual void CreateItemView(TItem item, int modelIndex)
+        {
+            var pair = CreateView(GetKey(item));
+            pair.view.transform.SetSiblingIndex(modelIndex);
         }
 
         /// <summary>Handles a single collection delta event. Move is a no-op by default; override if reordering must be reflected in the view hierarchy.</summary>
@@ -36,7 +43,7 @@ namespace Ruka.UI.MVVM
             switch (delta.Action)
             {
                 case NotifyCollectionChangedAction.Add:
-                    CreateView(GetKey(delta.NewItem));
+                    CreateItemView(delta.NewItem, delta.NewStartingIndex);
                     break;
 
                 case NotifyCollectionChangedAction.Remove:
@@ -45,7 +52,7 @@ namespace Ruka.UI.MVVM
 
                 case NotifyCollectionChangedAction.Replace:
                     RemoveView(GetKey(delta.OldItem));
-                    CreateView(GetKey(delta.NewItem));
+                    CreateItemView(delta.NewItem, delta.NewStartingIndex);
                     break;
 
                 case NotifyCollectionChangedAction.Move:
@@ -55,8 +62,8 @@ namespace Ruka.UI.MVVM
                     var keys = Views.Keys.ToArray();
                     foreach (var key in keys)
                         RemoveView(key);
-                    foreach (var item in model)
-                        CreateView(GetKey(item));
+                    for (var i = 0; i < model.Count; i++)
+                        CreateItemView(model[i], i);
                     break;
             }
         }
