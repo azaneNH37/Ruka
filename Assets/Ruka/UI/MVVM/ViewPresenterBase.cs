@@ -46,7 +46,18 @@ namespace Ruka.UI.MVVM
         protected (TView view, TViewModel model) CreateView(TKey id)
         {
             RemoveView(id);
-            var pair = CreateInternal();
+            var pair = CreateInternal(AcquireView());
+            _views[id] = pair.view;
+            _models[id] = pair.model;
+            return pair;
+        }
+
+        /// <summary>Instantiates the prefab under a specific parent, resolves and binds a new ViewModel.</summary>
+        /// <remarks>If id is already registered, the existing pair is removed first.</remarks>
+        protected (TView view, TViewModel model) CreateView(TKey id, Transform parent)
+        {
+            RemoveView(id);
+            var pair = CreateInternal(AcquireView(parent));
             _views[id] = pair.view;
             _models[id] = pair.model;
             return pair;
@@ -61,7 +72,18 @@ namespace Ruka.UI.MVVM
         protected (TView view, TViewModel model) CreateView<TParam>(TKey id, TParam param)
         {
             RemoveView(id);
-            var pair = CreateInternal(param);
+            var pair = CreateInternal(AcquireView(), param);
+            _views[id] = pair.view;
+            _models[id] = pair.model;
+            return pair;
+        }
+
+        /// <summary>Instantiates under a specific parent, resolves, initializes with param, and binds.</summary>
+        /// <remarks>If id is already registered, the existing pair is removed first.</remarks>
+        protected (TView view, TViewModel model) CreateView<TParam>(TKey id, TParam param, Transform parent)
+        {
+            RemoveView(id);
+            var pair = CreateInternal(AcquireView(parent), param);
             _views[id] = pair.view;
             _models[id] = pair.model;
             return pair;
@@ -78,8 +100,11 @@ namespace Ruka.UI.MVVM
             }
         }
 
-        /// <summary>Acquires a View instance. Override to integrate with an object pool instead of Instantiate.</summary>
-        protected virtual TView AcquireView() => _resolver.Instantiate(_prefab, _parent);
+        /// <summary>Acquires a View instance under the default parent. Override to integrate with an object pool.</summary>
+        protected virtual TView AcquireView() => AcquireView(_parent);
+
+        /// <summary>Acquires a View instance under a specific parent. Override to integrate with an object pool.</summary>
+        protected virtual TView AcquireView(Transform parent) => _resolver.Instantiate(_prefab, parent);
 
         /// <summary>Releases a View instance. Override to return it to an object pool instead of Destroy.</summary>
         protected virtual void ReleaseView(TView view) => Object.Destroy(view.gameObject);
@@ -97,17 +122,15 @@ namespace Ruka.UI.MVVM
             _models.Clear();
         }
 
-        private (TView view, TViewModel model) CreateInternal()
+        private (TView view, TViewModel model) CreateInternal(TView view)
         {
-            var view = AcquireView();
             var model = _resolver.Resolve<TViewModel>();
             view.Bind(model);
             return (view, model);
         }
 
-        private (TView view, TViewModel model) CreateInternal<TParam>(TParam param)
+        private (TView view, TViewModel model) CreateInternal<TParam>(TView view, TParam param)
         {
-            var view = AcquireView();
             var model = _resolver.Resolve<TViewModel>();
             if (model is IInitializableViewModel<TParam> initModel)
                 initModel.Initialize(param);
