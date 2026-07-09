@@ -8,6 +8,7 @@ namespace Ruka.Core.Clock
         Observable<long> OnTick { get; }
         ReadOnlyReactiveProperty<float> TimeScaleRx { get; }
         ReadOnlyReactiveProperty<bool> IsPausedRx { get; }
+        float TickInterval { get; }
         float Alpha { get; }
     }
 }

@@ -22,6 +22,7 @@ namespace Ruka.Core.Clock
         private readonly float _tickInterval;
         private float _accumulator;
 
+        public float TickInterval => _tickInterval;
         public float Alpha => _tickInterval > 0f ? _accumulator / _tickInterval : 0f;
 
         private readonly IDisposable _subscription;
