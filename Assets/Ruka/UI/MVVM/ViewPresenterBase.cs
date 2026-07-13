@@ -107,7 +107,11 @@ namespace Ruka.UI.MVVM
         protected virtual TView AcquireView(Transform parent) => _resolver.Instantiate(_prefab, parent);
 
         /// <summary>Releases a View instance. Override to return it to an object pool instead of Destroy.</summary>
-        protected virtual void ReleaseView(TView view) => Object.Destroy(view.gameObject);
+        protected virtual void ReleaseView(TView view)
+        {
+            if(view != null && view.gameObject != null)
+                Object.Destroy(view.gameObject);
+        }
 
         public virtual void Dispose()
         {
